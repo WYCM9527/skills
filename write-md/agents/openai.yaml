@@ -1,0 +1,4 @@
+interface:
+  display_name: "教程文档写作"
+  short_description: "根据主题与资料生成适合飞书粘贴的分层 Markdown 教程"
+  default_prompt: "使用 $write-md 根据我提供的主题或资料，撰写一篇适合粘贴到飞书云文档的分层 Markdown 教程。"
