@@ -1,0 +1,14 @@
+{
+  "color": {
+    "blue": {
+      "500": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.145, 0.388, 0.922],
+          "alpha": 1
+        }
+      }
+    }
+  }
+}

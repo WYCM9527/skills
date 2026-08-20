@@ -1,0 +1,9 @@
+:root {
+  --legacy-brand: #2563eb;
+  --legacy-space: 16px;
+}
+
+.button {
+  background: #2563eb;
+  padding: 16px;
+}

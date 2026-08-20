@@ -1,0 +1,6 @@
+policy:
+  allow_implicit_invocation: false
+interface:
+  display_name: "Design System Steward"
+  short_description: "Audit and establish a governed DTCG design system"
+  default_prompt: "Use $design-system-steward audit for the explicitly named project root."

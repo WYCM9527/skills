@@ -1,0 +1,7 @@
+:root {
+  --surface: #ffffff;
+}
+
+[data-theme="dark"] {
+  --surface: #111111;
+}
