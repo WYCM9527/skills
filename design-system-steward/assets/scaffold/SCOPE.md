@@ -26,4 +26,5 @@
 ## 不属于本 Scope 的内容
 
 - 浅色／深色等同一界面的主题映射仍由 Theme 管理，不新建 Scope。
+- 如本 Scope 覆写的 Semantic 在 Theme 间也变化，先记录为待确认交互；不要自动创建 Scope × Theme CSS。
 - 无页面边界、只有零星硬编码的差异属于 Drift，先修正或提出提案，不升级为规范。

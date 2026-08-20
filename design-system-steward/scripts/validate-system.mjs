@@ -21,9 +21,16 @@ import {
 const SCOPE_ID = /^[a-z][a-z0-9-]*$/;
 const SCOPE_KINDS = new Set(["section", "page"]);
 const SCOPE_STATUSES = new Set(["active", "reference-only"]);
+const THEME_ACTIVATION_KINDS = new Set(["data-attribute", "class", "media"]);
+const THEME_ID = /^[a-z][a-z0-9-]*$/;
+const THEME_STATUSES = new Set(["active", "reference-only"]);
 
 function issue(issues, code, message, details = {}) {
   issues.push({ code, message, severity: "error", ...details });
+}
+
+function warning(issues, code, message, details = {}) {
+  issues.push({ code, message, severity: "warning", ...details });
 }
 
 function isPlainObject(value) {
@@ -89,6 +96,83 @@ function normalizeScope(raw, position, issues) {
     raw,
     reason: typeof raw.reason === "string" ? raw.reason.trim() : raw.reason,
     reviewBy: raw.reviewBy,
+    status
+  };
+}
+
+function normalizeThemeActivation(raw, issues) {
+  if (!isPlainObject(raw) || typeof raw.kind !== "string" || !THEME_ACTIVATION_KINDS.has(raw.kind)) {
+    issue(
+      issues,
+      "invalid-theme-activation",
+      "theme-map.json activation must use kind: data-attribute, class, or media"
+    );
+    return null;
+  }
+
+  if (raw.kind === "data-attribute") {
+    if (typeof raw.attribute !== "string" || !/^data-[a-z][a-z0-9-]*$/.test(raw.attribute)) {
+      issue(
+        issues,
+        "invalid-theme-activation-attribute",
+        "data-attribute activation requires a lowercase data-* attribute"
+      );
+      return null;
+    }
+    return { attribute: raw.attribute, kind: raw.kind };
+  }
+
+  if (raw.attribute !== undefined) {
+    issue(
+      issues,
+      "invalid-theme-activation-attribute",
+      `${raw.kind} activation cannot declare an attribute`
+    );
+    return null;
+  }
+  return { kind: raw.kind };
+}
+
+function normalizeTheme(raw, position, defaultTheme, issues) {
+  const label = `theme at index ${position}`;
+  if (!isPlainObject(raw)) {
+    issue(issues, "invalid-theme-entry", `${label} must be an object`);
+    return null;
+  }
+  const id = raw.id;
+  if (typeof id !== "string" || !THEME_ID.test(id)) {
+    issue(issues, "invalid-theme-id", `${label} must have a lowercase kebab-case id`, { theme: id });
+    return null;
+  }
+  if (id === defaultTheme) {
+    issue(
+      issues,
+      "default-theme-must-be-core",
+      `${id}: the confirmed default theme is represented by Core and cannot have a Theme delta`,
+      { theme: id }
+    );
+  }
+  if (typeof raw.reason !== "string" || !raw.reason.trim()) {
+    issue(issues, "missing-theme-reason", `${id}: reason is required`, { theme: id });
+  }
+  const status = raw.status ?? "active";
+  if (!THEME_STATUSES.has(status)) {
+    issue(issues, "invalid-theme-status", `${id}: status must be active or reference-only`, { theme: id });
+  }
+  if (typeof raw.source !== "string" || !raw.source.trim()) {
+    issue(issues, "missing-theme-source", `${id}: source is required`, { theme: id });
+  }
+  if (typeof raw.runtimeOwner !== "string" || !raw.runtimeOwner.trim()) {
+    issue(issues, "missing-theme-runtime-owner", `${id}: runtimeOwner is required`, { theme: id });
+  }
+  return {
+    id,
+    owner: raw.owner,
+    raw,
+    reason: typeof raw.reason === "string" ? raw.reason.trim() : raw.reason,
+    reviewBy: raw.reviewBy,
+    runtimeOwner: typeof raw.runtimeOwner === "string" ? raw.runtimeOwner.trim() : raw.runtimeOwner,
+    source: typeof raw.source === "string" ? raw.source.trim() : raw.source,
     status
   };
 }
@@ -174,6 +258,19 @@ function selectorForChain(chain) {
   return chain.map((id) => `[data-ds-scope~="${id}"]`).join("");
 }
 
+function selectorForTheme(theme, themeMap) {
+  if (themeMap.activation.kind === "data-attribute") {
+    return `:root[${themeMap.activation.attribute}="${theme.id}"]`;
+  }
+  return themeMap.activation.kind === "class" ? `:root.${theme.id}` : ":root";
+}
+
+function mediaQueryForTheme(theme, themeMap) {
+  return themeMap.activation.kind === "media"
+    ? `(prefers-color-scheme: ${theme.id})`
+    : null;
+}
+
 function scopeChainFor(id, scopesById, issues) {
   const state = new Map();
   const stack = [];
@@ -219,10 +316,11 @@ function scopeChainFor(id, scopesById, issues) {
   return visit(id);
 }
 
-function enrichTokens(tokens, origin) {
+function enrichTokens(tokens, origin, originKind = "scope") {
   return new Map([...tokens.entries()].map(([tokenPath, token]) => [tokenPath, {
     ...token,
-    origin
+    origin,
+    originKind
   }]));
 }
 
@@ -305,6 +403,50 @@ function checkScopeTokenLayers(scope, parentTokens, issues) {
   }
 }
 
+function checkThemeTokenLayers(theme, coreTokens, issues) {
+  for (const token of theme.localTokens.values()) {
+    if (token.layer === "unknown") {
+      issue(issues, "unsupported-theme-token-file", `${theme.id}: ${token.file} must be a standard layer file`, {
+        theme: theme.id,
+        token: token.path,
+        file: token.file
+      });
+      continue;
+    }
+    if (token.layer === "primitive") {
+      issue(
+        issues,
+        "theme-primitive-not-allowed",
+        `${theme.id}: Theme deltas cannot define Primitive tokens; add a confirmed reusable value to Core instead`,
+        { theme: theme.id, token: token.path }
+      );
+      continue;
+    }
+
+    const coreToken = coreTokens.get(token.path);
+    if (token.layer === "semantic") {
+      if (!coreToken || coreToken.layer !== "semantic") {
+        issue(
+          issues,
+          "theme-semantic-must-override-core",
+          `${theme.id}: semantic ${token.path} must override a Core semantic token`,
+          { theme: theme.id, token: token.path }
+        );
+      }
+      continue;
+    }
+
+    if (token.layer === "component" && (!coreToken || coreToken.layer !== "component")) {
+      issue(
+        issues,
+        "theme-component-must-override-approved-exception",
+        `${theme.id}: component ${token.path} must override an approved Core component exception`,
+        { theme: theme.id, token: token.path }
+      );
+    }
+  }
+}
+
 async function scopeDirectories(scopesRoot) {
   if (!(await fileExists(scopesRoot))) {
     return [];
@@ -316,8 +458,19 @@ async function scopeDirectories(scopesRoot) {
     .sort((left, right) => left.localeCompare(right));
 }
 
+async function themeDirectories(themesRoot) {
+  if (!(await fileExists(themesRoot))) {
+    return [];
+  }
+  const entries = await readdir(themesRoot, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort((left, right) => left.localeCompare(right));
+}
+
 /**
- * Inspect the complete Core + Scope system. `result` is JSON-safe; `internal`
+ * Inspect the complete Core + Theme + Scope system. `result` is JSON-safe; `internal`
  * additionally exposes the resolved token maps for deterministic builders.
  */
 export async function inspectDesignSystem(projectRoot) {
@@ -326,8 +479,13 @@ export async function inspectDesignSystem(projectRoot) {
   const coreTokensRoot = path.join(systemRoot, "tokens");
   const scopeMapPath = path.join(systemRoot, "scope-map.json");
   const scopesRoot = path.join(systemRoot, "scopes");
+  const themeMapPath = path.join(systemRoot, "theme-map.json");
+  const themesRoot = path.join(systemRoot, "themes");
   const hasScopeMap = await fileExists(scopeMapPath);
+  const hasThemeMap = await fileExists(themeMapPath);
   let scopeEntries = [];
+  let themeEntries = [];
+  let themeMap = null;
 
   if (hasScopeMap) {
     let parsed;
@@ -352,9 +510,54 @@ export async function inspectDesignSystem(projectRoot) {
     }
   }
 
+  if (hasThemeMap) {
+    let parsed;
+    try {
+      parsed = await readJson(themeMapPath);
+    } catch (error) {
+      issue(issues, "invalid-theme-map-json", `Cannot parse theme-map.json: ${error.message}`);
+      parsed = null;
+    }
+    if (parsed !== null) {
+      if (!isPlainObject(parsed)) {
+        issue(issues, "invalid-theme-map", "theme-map.json must contain an object");
+      } else if (parsed.version !== 1) {
+        issue(issues, "unsupported-theme-map-version", "theme-map.json must declare version: 1");
+      } else if (typeof parsed.defaultTheme !== "string" || !THEME_ID.test(parsed.defaultTheme)) {
+        issue(issues, "invalid-default-theme", "theme-map.json defaultTheme must be a lowercase kebab-case id");
+      } else if (!Array.isArray(parsed.themes)) {
+        issue(issues, "invalid-theme-map", "theme-map.json themes must be an array");
+      } else {
+        const activation = normalizeThemeActivation(parsed.activation, issues);
+        themeEntries = parsed.themes
+          .map((entry, index) => normalizeTheme(entry, index, parsed.defaultTheme, issues))
+          .filter(Boolean);
+        if (activation) {
+          themeMap = {
+            activation,
+            defaultTheme: parsed.defaultTheme,
+            themes: themeEntries
+          };
+          if (activation.kind === "media" && [parsed.defaultTheme, ...themeEntries.map((theme) => theme.id)]
+            .some((id) => id !== "dark" && id !== "light")) {
+            issue(
+              issues,
+              "invalid-media-theme-id",
+              "media activation only supports light and dark theme ids"
+            );
+          }
+        }
+      }
+    }
+  }
+
   const scopeDirs = await scopeDirectories(scopesRoot);
   if (!hasScopeMap && scopeDirs.length > 0) {
     issue(issues, "missing-scope-map", "scope-map.json is required when design-system/scopes contains a Scope");
+  }
+  const themeDirs = await themeDirectories(themesRoot);
+  if (!hasThemeMap && themeDirs.length > 0) {
+    issue(issues, "missing-theme-map", "theme-map.json is required when design-system/themes contains a Theme");
   }
 
   const scopesById = new Map();
@@ -381,6 +584,28 @@ export async function inspectDesignSystem(projectRoot) {
   }
   checkSiblingBoundaryOverlap([...scopesById.values()], issues);
 
+  const themesById = new Map();
+  for (const theme of themeEntries) {
+    if (themesById.has(theme.id)) {
+      issue(issues, "duplicate-theme-id", `theme-map.json registers ${theme.id} more than once`, { theme: theme.id });
+      continue;
+    }
+    themesById.set(theme.id, theme);
+  }
+  for (const directory of themeDirs) {
+    if (!themesById.has(directory)) {
+      issue(issues, "unregistered-theme-directory", `themes/${directory} is not registered in theme-map.json`, { theme: directory });
+    }
+  }
+  for (const theme of themesById.values()) {
+    const directory = path.join(themesRoot, theme.id);
+    theme.directory = directory;
+    theme.tokensRoot = path.join(directory, "tokens");
+    if (!(await fileExists(directory))) {
+      issue(issues, "missing-theme-directory", `${theme.id}: themes/${theme.id} does not exist`, { theme: theme.id });
+    }
+  }
+
   let coreLoaded;
   if (await fileExists(coreTokensRoot)) {
     coreLoaded = await loadTokenDirectory(coreTokensRoot);
@@ -389,7 +614,7 @@ export async function inspectDesignSystem(projectRoot) {
     coreLoaded = { issues: [], tokenCount: 0, tokenFiles: [], tokens: new Map() };
   }
   issues.push(...coreLoaded.issues);
-  const coreTokens = enrichTokens(coreLoaded.tokens, "core");
+  const coreTokens = enrichTokens(coreLoaded.tokens, "core", "core");
 
   for (const scope of scopesById.values()) {
     let loaded = { issues: [], tokenCount: 0, tokenFiles: [], tokens: new Map() };
@@ -398,7 +623,17 @@ export async function inspectDesignSystem(projectRoot) {
     }
     issues.push(...loaded.issues);
     scope.loaded = loaded;
-    scope.localTokens = enrichTokens(loaded.tokens, scope.id);
+    scope.localTokens = enrichTokens(loaded.tokens, scope.id, "scope");
+  }
+
+  for (const theme of themesById.values()) {
+    let loaded = { issues: [], tokenCount: 0, tokenFiles: [], tokens: new Map() };
+    if (await fileExists(theme.tokensRoot)) {
+      loaded = await loadTokenDirectory(theme.tokensRoot);
+    }
+    issues.push(...loaded.issues);
+    theme.loaded = loaded;
+    theme.localTokens = enrichTokens(loaded.tokens, theme.id, "theme");
   }
 
   const definitionsByPath = new Map();
@@ -414,30 +649,58 @@ export async function inspectDesignSystem(projectRoot) {
   for (const scope of scopesById.values()) {
     indexDefinitions(scope.localTokens);
   }
+  for (const theme of themesById.values()) {
+    indexDefinitions(theme.localTokens);
+  }
 
   function missingReferenceHandler(token, reference) {
     const definitions = definitionsByPath.get(reference) ?? [];
     if (definitions.length === 0) {
       return false;
     }
-    const targetOrigins = [...new Set(definitions.map((definition) => definition.origin))];
-    if (token.origin === "core") {
+    const targetOrigins = [...new Set(definitions.map((definition) => `${definition.originKind}:${definition.origin}`))];
+    if (token.originKind === "core") {
       issue(
         issues,
         "core-reverse-reference",
-        `Core token ${token.path} cannot reference Scope token ${reference}`,
+        `Core token ${token.path} cannot reference Theme or Scope token ${reference}`,
         { token: token.path, reference, targets: targetOrigins }
       );
       return true;
     }
-    for (const targetOrigin of targetOrigins) {
-      const relationship = findScopeRelationship(token.origin, targetOrigin, scopesById);
+    if (token.originKind === "theme") {
+      const external = definitions.filter((definition) => definition.originKind !== "core");
+      if (external.length > 0) {
+        issue(
+          issues,
+          "theme-cross-reference",
+          `${token.origin}: ${token.path} can only reference Core or its own Theme tokens, not ${reference}`,
+          { theme: token.origin, token: token.path, reference, targets: targetOrigins }
+        );
+        return true;
+      }
+      return false;
+    }
+    for (const definition of definitions) {
+      if (definition.originKind === "theme") {
+        issue(
+          issues,
+          "scope-theme-reference",
+          `${token.origin}: ${token.path} cannot reference Theme token ${reference}`,
+          { scope: token.origin, token: token.path, reference, theme: definition.origin }
+        );
+        return true;
+      }
+      if (definition.originKind !== "scope") {
+        continue;
+      }
+      const relationship = findScopeRelationship(token.origin, definition.origin, scopesById);
       if (relationship === "child") {
         issue(
           issues,
           "scope-reverse-reference",
           `${token.origin}: ${token.path} cannot reference child Scope token ${reference}`,
-          { scope: token.origin, token: token.path, reference, targetScope: targetOrigin }
+          { scope: token.origin, token: token.path, reference, targetScope: definition.origin }
         );
         return true;
       }
@@ -446,7 +709,7 @@ export async function inspectDesignSystem(projectRoot) {
           issues,
           "scope-sibling-reference",
           `${token.origin}: ${token.path} cannot reference sibling Scope token ${reference}`,
-          { scope: token.origin, token: token.path, reference, targetScope: targetOrigin }
+          { scope: token.origin, token: token.path, reference, targetScope: definition.origin }
         );
         return true;
       }
@@ -458,6 +721,22 @@ export async function inspectDesignSystem(projectRoot) {
     onMissingReference: missingReferenceHandler,
     tokenFiles: coreLoaded.tokenFiles
   });
+
+  const themesInOrder = [...themesById.values()]
+    .sort((left, right) => left.id.localeCompare(right.id));
+  for (const theme of themesInOrder) {
+    checkThemeTokenLayers(theme, coreTokens, issues);
+    const effectiveTokens = new Map(coreTokens);
+    for (const [tokenPath, token] of theme.localTokens) {
+      effectiveTokens.set(tokenPath, token);
+    }
+    theme.effectiveTokens = effectiveTokens;
+    validateTokenRecords(effectiveTokens, issues, {
+      allowEmpty: true,
+      onMissingReference: missingReferenceHandler,
+      tokenFiles: theme.loaded.tokenFiles
+    });
+  }
 
   const scopesInOrder = [...scopesById.values()]
     .filter((scope) => Array.isArray(scope.chain))
@@ -497,6 +776,24 @@ export async function inspectDesignSystem(projectRoot) {
     });
   }
 
+  const activeThemes = themesInOrder.filter((theme) => theme.status === "active");
+  if (activeThemes.length > 0) {
+    for (const scope of scopesInOrder) {
+      if (scope.status !== "active" || !scope.localTokens) {
+        continue;
+      }
+      const overridesSemantic = [...scope.localTokens.values()].some((token) => token.layer === "semantic");
+      if (overridesSemantic) {
+        warning(
+          issues,
+          "scope-theme-delta-not-managed",
+          `${scope.id}: this Scope overrides Semantic tokens while managed Themes are active. v0.3 does not generate Scope × Theme CSS; confirm the Scope delta is valid in every Theme before integrating it.`,
+          { scope: scope.id, themes: activeThemes.map((theme) => theme.id) }
+        );
+      }
+    }
+  }
+
   const summarizedScopes = [...scopesById.values()]
     .sort((left, right) => left.id.localeCompare(right.id))
     .map((scope) => ({
@@ -511,8 +808,19 @@ export async function inspectDesignSystem(projectRoot) {
       tokenCount: scope.loaded?.tokenCount ?? 0,
       tokenFiles: scope.loaded?.tokenFiles ?? []
     }));
+  const summarizedThemes = themesInOrder.map((theme) => ({
+    id: theme.id,
+    mediaQuery: themeMap ? mediaQueryForTheme(theme, themeMap) : null,
+    reason: theme.reason,
+    runtimeOwner: theme.runtimeOwner,
+    selector: themeMap ? selectorForTheme(theme, themeMap) : null,
+    source: theme.source,
+    status: theme.status,
+    tokenCount: theme.loaded?.tokenCount ?? 0,
+    tokenFiles: theme.loaded?.tokenFiles ?? []
+  }));
   const sortedIssues = sortIssues(issues);
-  const valid = sortedIssues.length === 0;
+  const valid = !sortedIssues.some((current) => current.severity === "error");
   const result = {
     core: {
       tokenCount: coreLoaded.tokenCount,
@@ -525,6 +833,13 @@ export async function inspectDesignSystem(projectRoot) {
       scopeCount: scopesById.size
     },
     scopes: summarizedScopes,
+    themeMap: {
+      activation: themeMap?.activation ?? null,
+      defaultTheme: themeMap?.defaultTheme ?? null,
+      present: hasThemeMap,
+      themeCount: themesById.size
+    },
+    themes: summarizedThemes,
     valid
   };
 
@@ -537,7 +852,10 @@ export async function inspectDesignSystem(projectRoot) {
       },
       scopesById,
       scopesInOrder,
-      systemRoot
+      systemRoot,
+      themeMap,
+      themesById,
+      themesInOrder
     },
     result
   };
@@ -549,6 +867,14 @@ export async function validateDesignSystem(projectRoot) {
 
 export function cssSelectorForScope(scope) {
   return selectorForChain(scope.chain ?? []);
+}
+
+export function cssSelectorForTheme(theme, themeMap) {
+  return selectorForTheme(theme, themeMap);
+}
+
+export function cssMediaQueryForTheme(theme, themeMap) {
+  return mediaQueryForTheme(theme, themeMap);
 }
 
 export function tokenGlob(tokensRoot) {

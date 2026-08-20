@@ -31,6 +31,17 @@ function outputDestination() {
   return destination;
 }
 
+function mediaQuery() {
+  const query = process.env.DS_SCOPE_MEDIA;
+  if (!query) {
+    return null;
+  }
+  if (!/^\(prefers-color-scheme: (?:dark|light)\)$/.test(query)) {
+    throw new Error("DS_SCOPE_MEDIA must be a supported prefers-color-scheme query");
+  }
+  return query;
+}
+
 function collectReferences(value) {
   if (typeof value !== "string") {
     return [];
@@ -107,7 +118,11 @@ async function scopeDeltaCss({ dictionary, options }) {
   if (lines.length === 0) {
     return "";
   }
-  return `${selector} {\n${lines.join("\n")}\n}\n`;
+  const body = `${selector} {\n${lines.join("\n")}\n}\n`;
+  if (!options.media) {
+    return body;
+  }
+  return `@media ${options.media} {\n${body.replace(/^/gm, "  ").replace(/\n*$/, "")}\n}\n`;
 }
 
 const outputRoot = process.env.DS_OUTPUT_DIR
@@ -118,6 +133,7 @@ const source = environmentPathList(
   [path.join(root, "tokens", "**", "*.tokens.json")]
 );
 const include = environmentPathList("DS_SCOPE_INCLUDE", []);
+const media = mediaQuery();
 
 export default {
   include,
@@ -142,6 +158,7 @@ export default {
           destination: outputDestination(),
           format: "design-system-steward/scope-delta",
           options: {
+            media,
             selector: process.env.DS_SCOPE_SELECTOR ?? ":root",
             showFileHeader: false
           }

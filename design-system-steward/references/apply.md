@@ -1,62 +1,49 @@
-# Apply：经确认后建立 Core 或局部规范
+# Apply：经确认后建立 Core、Scope 或 Theme
 
-Apply 有两个相互独立的写入动作：首次建立 Core，以及随后建立某个局部规范。它们都不修改 UI。
+`apply` 是登记和来源建立步骤，不是页面迁移器。它不会修改 UI、旧设计文档、Figma 或运行时切换代码。
 
 ## 建立 Core
 
-只有用户明确确认以下三件事后，才可执行首次 Apply：
+开始前必须确认：
 
-1. 精确的绝对项目根目录；
-2. 发生冲突时选择的权威来源；
-3. 可以创建该项目的 `design-system/` 目录。
+1. 准确的绝对项目根目录；
+2. 冲突时选定的权威来源；
+3. 可以创建 `design-system/`，以及本次将写入的准确 Token／文档／构建产物；
+4. 只有已批准的少量 Token 种子会成为真相源，未经确认的审计候选不会被写入。
 
-安全顺序：
+Bootstrap 不覆盖已有 `design-system/`、旧文档、`src/` 或页面。经用户确认后，Agent 再按目标项目已有的包管理链添加并锁定构建依赖、提供统一构建命令；脚本本身只建立设计系统产物。先验证 Token，再构建生成 CSS。
 
-1. 将 `audit` JSON 证据保存到项目外的临时位置，或通过 `--audit-report` 传给 bootstrap。
-2. 运行 bootstrap。它拒绝覆盖已有 `design-system/`，不修改 `src/`、页面、旧文档或现有 Token。
-3. 只把用户确认过的少量 Token 写入 Core Primitive／Semantic 文件；不要把未经确认的候选值写成真相。
-4. 根据目标项目已有锁文件判断 npm、pnpm、yarn 或 bun，并在同一次确认下添加精确版本的开发依赖 `style-dictionary@5.5.2`。
-5. 向目标 `package.json` 添加一个统一构建命令，由检测到的包管理器执行；不要求用户自行选择构建工具。
-6. 每次构建前验证 Token，再运行构建命令。首次成功后才出现 `design-system/dist/tokens.css` 和 `dist/index.css`。
+Core 是确认的默认 Theme，不会再复制一份默认模式到 `themes/`。
 
 ## 建立局部规范
 
-`apply --scope <id>` 只能在 Core 已存在后运行。先确认以下内容：
+`apply --scope <id>` 要在 Core 已存在后执行，并再次确认：
 
-1. 精确的绝对项目根目录；
-2. Scope ID 与 `kind`（`section` 或 `page`）；
-3. 现有父级（`core` 或已登记 Scope）；
-4. 至少一个非空路由 glob 或源码 glob；
-5. 设计理由与选定权威来源；
-6. 可以创建 `scopes/<id>/` 并更新 `scope-map.json`。
+1. 项目根目录和 Scope ID；
+2. `kind`（`section` 或 `page`）与现有父级；
+3. 至少一个非空路由或源码 glob；
+4. 设计理由、权威来源和允许创建 `scopes/<id>/`／更新 `scope-map.json`。
 
-运行：
+它只创建相对父级的文档、按需 Token 目录和唯一登记册；不加 `data-ds-scope`、不改 Layout、不导入 CSS。含 `*` 的 glob 必须加引号，避免 shell 先展开它。
 
-```text
-node scripts/scaffold-scope.mjs \
-  --project <absolute-project-root> \
-  --scope <id> \
-  --kind <section|page> \
-  --parent <core-or-scope-id> \
-  --reason <confirmed-reason> \
-  [--routes <comma-separated-route-globs>] \
-  [--source-globs <comma-separated-source-globs>] \
-  [--status <active|reference-only>]
-```
+## 建立 Theme
 
-该命令必须拒绝覆盖现有 Scope、缺失父级、循环关系、同级范围重叠和不合格的 ID。它只创建局部文档、按需 Token 目录并更新登记册；不加 `data-ds-scope`、不改 Layout、不导入 CSS、也不替用户决定局部 Token。
+`apply --theme <id>` 只在已有 Theme 有静态证据，或用户明确要求新增 Theme 后进行。开始前必须确认：
 
-命令参数中的 glob 要加引号，例如 `--source-globs 'src/showcase/**'`；否则 shell 可能在脚本运行前展开 `*`。
+1. 项目根目录、Theme ID、Core 代表的默认模式；
+2. 权威映射来源，以及已有模式的选择器／运行时切换线索；
+3. 一个受控的根级激活方式和其运行时所有者；不能接受任意手写 CSS selector；
+4. 可以创建或更新 `theme-map.json`、`themes/<id>/` 和对应生成物；
+5. 本次只纳管已批准的 Theme Semantic delta，以及已批准的 Component 例外。
+
+它创建 Theme 登记与相对 Core 的文档／Token delta，不改旧 Theme CSS、不添加切换按钮、`localStorage`、provider 或 `prefers-color-scheme` 逻辑。没有 Theme 证据且用户未要求时，什么也不创建；用户要求新增时，先走 [theme.md](theme.md) 的提案，不从现有颜色自动反相生成 dark mode。
 
 ## 文档原则
 
-- `DESIGN.md` 写 Core 的视觉语言、布局、交互、响应式、Token 使用规则和 Do/Don't；不要再次列色值或 px 值。
-- `SCOPE.md` 只写该 Scope 相对父级的设计理由、边界、特殊规则和 Do/Don't；不要复制 `DESIGN.md` 或具体值。
-- `AUDIT.md` 写证据位置、用户选择、未迁移项和已知风险；不删除旧规范。
-- `TRY.md` 用于后续中文 Prompt 驱动的局部试验，不直接接入现有页面。
+- `DESIGN.md` 写 Core 的设计语言、Token 使用、布局、组件、交互和响应式规则；不重复色值或 px 值。
+- `SCOPE.md` 只写相对父级的范围、理由、差异与 Do／Don't；不复制 Core。
+- `THEME.md` 只写相对 Core 的模式意图、适用性和运行时约束；不重复 Token 值或 Scope 规则。
+- `AUDIT.md` 保留证据、用户选择、未迁移项与风险；不删除旧规范。
+- `TRY.md` 只用于可回滚试验，不授权直接改生产 UI。
 
-## Theme 与 Component Token
-
-仅当审计发现既有 Theme 的静态证据、且用户确认映射时，创建 `themes/`。不因为“设计系统通常有 dark mode”而发明一个 Theme，也不自动创造 Scope × Theme 组合。
-
-仅当组件有明确、已批准、不该提升为通用 Semantic Token 的例外时，才创建 Component Token。局部 Scope 的 Component 覆写同样需要这个批准；否则应修改父级 Semantic 或停下讨论。
+Component Token 只用于明确、已批准且不能提升为通用 Semantic 的组件例外。Theme 与 Scope 不能因为目录都存在就自动相乘；Theme 的详细边界见 [theme.md](theme.md)。

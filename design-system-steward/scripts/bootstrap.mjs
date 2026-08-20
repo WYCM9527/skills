@@ -55,10 +55,7 @@ async function main() {
   if (options["with-components"] === true) {
     await copyScaffold("components.tokens.json", path.join(systemRoot, "tokens", "components.tokens.json"));
   }
-  if (options["with-themes"] === true) {
-    await mkdir(path.join(systemRoot, "themes"), { recursive: true });
-    await writeText(path.join(systemRoot, "themes", ".gitkeep"), "");
-  }
+  const retiredThemeFlag = options["with-themes"] === true;
 
   const auditTemplate = await readFile(path.join(scaffoldRoot, "AUDIT.md"), "utf8");
   const legacyDocs = Array.isArray(auditReport?.designDocs) && auditReport.designDocs.length > 0
@@ -80,10 +77,12 @@ async function main() {
       "design-system/tokens/semantic.tokens.json",
       "design-system/scope-map.json",
       ...(options["with-components"] === true ? ["design-system/tokens/components.tokens.json"] : []),
-      ...(options["with-themes"] === true ? ["design-system/themes/"] : []),
       "design-system/style-dictionary.config.mjs",
       "design-system/dist/.gitkeep"
     ],
+    deprecatedOptions: retiredThemeFlag
+      ? ["--with-themes is retired and was ignored. Create a confirmed Theme with scaffold-theme.mjs instead."]
+      : [],
     projectRoot,
     source,
     uiSourceChanged: false

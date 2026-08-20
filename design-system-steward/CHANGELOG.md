@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 — 2026-08-20
+
+- Adds a confirmed Theme governance path: Core represents the approved default mode; `theme-map.json` registers activation and managed modes; Theme directories store only DTCG deltas relative to Core.
+- Adds explicit `apply --theme <id>` and `integrate --theme <id>` documentation, including separate write and second-integration confirmations. v0.3 does not create Theme switches or automatic Scope × Theme runtime combinations.
+- Separates explicit Steward work from ordinary coding: an approved, short project-rule reference lets coding Agents consume the system; new or revised reusable visual decisions return to proposal and approval first.
+- Clarifies that legacy sources remain temporary evidence before confirmed migration, while managed values have one DTCG source of truth. Ordinary content changes and one-off Drift do not automatically expand the system.
+- Refactors Skill guidance for progressive disclosure, moving Theme and long-term governance details into focused references.
+
 ## 0.2.0 — 2026-08-20
 
 - Adds Core plus inheritable scoped design-rule governance, called “局部规范／生效范围” in Chinese documentation.

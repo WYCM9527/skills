@@ -72,6 +72,97 @@ function collectVariableNames(text) {
     .sort((left, right) => left.localeCompare(right));
 }
 
+function recordThemeActivation(evidence, entry) {
+  const key = JSON.stringify(entry);
+  if (!evidence.some((current) => JSON.stringify(current) === key)) {
+    evidence.push(entry);
+  }
+}
+
+function collectThemeActivationEvidence(text, relative, evidence) {
+  const modesFor = new Map();
+  function addMode(key, mode) {
+    if (!modesFor.has(key)) {
+      modesFor.set(key, new Set());
+    }
+    modesFor.get(key).add(mode);
+  }
+  for (const match of text.matchAll(/\[\s*(data-(?:theme|color-scheme|mode))\b/gi)) {
+    const attribute = match[1].toLowerCase();
+    if (!modesFor.has(`data-attribute:${attribute}`)) {
+      modesFor.set(`data-attribute:${attribute}`, new Set());
+    }
+  }
+  for (const match of text.matchAll(/\[\s*(data-(?:theme|color-scheme|mode))\s*=\s*["']([a-z][a-z0-9-]*)["']\s*\]/gi)) {
+    const attribute = match[1].toLowerCase();
+    const key = `data-attribute:${attribute}`;
+    addMode(key, match[2].toLowerCase());
+  }
+  for (const match of text.matchAll(/(?:setAttribute\(\s*["'](data-(?:theme|color-scheme|mode))["']\s*,\s*["']([a-z][a-z0-9-]*)["']|\bdataset\.(theme|colorScheme|mode)\s*=\s*["']([a-z][a-z0-9-]*)["'])/gi)) {
+    const attribute = (match[1] ?? (match[3] === "colorScheme" ? "data-color-scheme" : `data-${match[3]}`)).toLowerCase();
+    const mode = (match[2] ?? match[4]).toLowerCase();
+    addMode(`data-attribute:${attribute}`, mode);
+    recordThemeActivation(evidence, {
+      attribute,
+      file: relative,
+      kind: "runtime-data-attribute",
+      modes: [mode]
+    });
+  }
+  for (const match of text.matchAll(/(?:^|[\s,{>])(?::root|html)?\.(dark|light)\b/gim)) {
+    addMode("class", match[1].toLowerCase());
+  }
+  for (const match of text.matchAll(/classList\.(?:add|remove|toggle)\(\s*["'](dark|light)["']/gi)) {
+    const mode = match[1].toLowerCase();
+    addMode("class", mode);
+    recordThemeActivation(evidence, { file: relative, kind: "runtime-class", modes: [mode] });
+  }
+  for (const match of text.matchAll(/prefers-color-scheme\s*:\s*(dark|light)/gi)) {
+    const mode = match[1].toLowerCase();
+    addMode("media", mode);
+  }
+
+  for (const [key, modes] of modesFor) {
+    const [kind, attribute] = key.split(":", 2);
+    recordThemeActivation(evidence, {
+      ...(attribute ? { attribute } : {}),
+      file: relative,
+      kind,
+      modes: [...modes].sort((left, right) => left.localeCompare(right))
+    });
+  }
+}
+
+function themeCandidatesFromEvidence(evidence) {
+  const groups = new Map();
+  for (const current of evidence) {
+    if (!["data-attribute", "class", "media"].includes(current.kind)) {
+      continue;
+    }
+    const activation = current.kind === "data-attribute"
+      ? { attribute: current.attribute, kind: current.kind }
+      : { kind: current.kind };
+    const key = JSON.stringify(activation);
+    const group = groups.get(key) ?? { activation, evidence: new Set(), modes: new Set() };
+    group.evidence.add(current.file);
+    for (const mode of current.modes) {
+      group.modes.add(mode);
+    }
+    groups.set(key, group);
+  }
+  return [...groups.values()]
+    .map((group) => ({
+      activation: group.activation,
+      defaultTheme: null,
+      evidence: [...group.evidence].sort((left, right) => left.localeCompare(right)),
+      modes: [...group.modes].sort((left, right) => left.localeCompare(right)),
+      reason: "Existing theme activation evidence was found. Preserve it as reference-only until the default mode and authority are confirmed.",
+      requiresConfirmation: true,
+      status: "reference-only"
+    }))
+    .sort((left, right) => JSON.stringify(left.activation).localeCompare(JSON.stringify(right.activation)));
+}
+
 function dedupePaths(values) {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
@@ -406,6 +497,7 @@ async function main() {
   const styleEntrypoints = [];
   const styleImportEvidence = [];
   const scopeGroups = new Map();
+  const themeActivationEvidence = [];
 
   for (const file of files) {
     const relative = relativePosix(projectRoot, file);
@@ -468,6 +560,7 @@ async function main() {
       if (/\[data-theme|prefers-color-scheme|\.dark\b|\.light\b/i.test(text)) {
         themeEvidence.push(relative);
       }
+      collectThemeActivationEvidence(text, relative, themeActivationEvidence);
     }
 
     const fileRoutes = new Set(extractRouteLiterals(text));
@@ -563,7 +656,7 @@ async function main() {
     .filter(Boolean));
   const report = {
     agentRules: dedupePaths(agentRules),
-    auditVersion: 2,
+    auditVersion: 3,
     componentExceptionEvidence: dedupePaths(componentVariableFiles),
     confidence: sourceCandidates.length === 0 ? "low" : sourceCandidates.length === 1 ? "medium" : "high",
     designDocs: dedupePaths(designDocs),
@@ -595,6 +688,10 @@ async function main() {
     styleImportEvidence: styleImportEvidence.sort((left, right) => left.file.localeCompare(right.file)),
     suggestedStartingPoint: sourceCandidates.length === 0 ? "new-dtcg" : null,
     tailwindConfigs: dedupePaths(tailwindConfigs),
+    themeActivationEvidence: themeActivationEvidence.sort((left, right) => (
+      `${left.kind}:${left.attribute ?? ""}:${left.file}`.localeCompare(`${right.kind}:${right.attribute ?? ""}:${right.file}`)
+    )),
+    themeCandidates: themeCandidatesFromEvidence(themeActivationEvidence),
     themeEvidence: dedupePaths(themeEvidence),
     totalCssVariableDefinitions: cssVariables.length,
     variableSamples: cssVariables

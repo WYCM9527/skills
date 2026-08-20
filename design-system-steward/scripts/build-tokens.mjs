@@ -15,6 +15,8 @@ import {
   requireStringOption
 } from "./lib.mjs";
 import {
+  cssMediaQueryForTheme,
+  cssSelectorForTheme,
   inspectDesignSystem,
   outputRelativePathForScope,
   tokenGlob
@@ -50,6 +52,7 @@ function configEnvironment(outputRoot, target) {
     DS_SCOPE_DESTINATION: target.destination,
     DS_SCOPE_ID: target.id,
     DS_SCOPE_INCLUDE: JSON.stringify(target.include),
+    DS_SCOPE_MEDIA: target.mediaQuery ?? "",
     DS_SCOPE_SELECTOR: target.selector,
     DS_SCOPE_SOURCE: JSON.stringify(target.source)
   };
@@ -154,8 +157,19 @@ function scopeBuildTarget(system, scope) {
   };
 }
 
-async function requireScopeCapableConfig(projectRoot, runtimeScopes) {
-  if (runtimeScopes.length === 0) {
+function themeBuildTarget(system, theme) {
+  return {
+    destination: `themes/${theme.id}.css`,
+    id: theme.id,
+    include: [tokenGlob(system.core.tokensRoot)],
+    mediaQuery: cssMediaQueryForTheme(theme, system.themeMap),
+    selector: cssSelectorForTheme(theme, system.themeMap),
+    source: [tokenGlob(theme.tokensRoot)]
+  };
+}
+
+async function requireDeltaCapableConfig(projectRoot, runtimeScopes, runtimeThemes, themeMap) {
+  if (runtimeScopes.length === 0 && runtimeThemes.length === 0) {
     return;
   }
   const config = path.join(projectRoot, "design-system", "style-dictionary.config.mjs");
@@ -165,9 +179,14 @@ async function requireScopeCapableConfig(projectRoot, runtimeScopes) {
       "The generated Style Dictionary config predates Scope support. Recreate only design-system/style-dictionary.config.mjs from design-system-steward v0.2 before building Scope CSS."
     );
   }
+  if (runtimeThemes.length > 0 && themeMap?.activation?.kind === "media" && !contents.includes("DS_SCOPE_MEDIA")) {
+    throw new Error(
+      "The generated Style Dictionary config predates Theme media support. Recreate only design-system/style-dictionary.config.mjs from design-system-steward v0.3 before building media Theme CSS."
+    );
+  }
 }
 
-/** Build every active Scope in parent-to-child order and return exact CSS outputs. */
+/** Build Core, active Themes, then active Scopes in deterministic order. */
 export async function buildDesignSystem(projectRoot, outputRoot = null, options = {}) {
   const inspected = await inspectDesignSystem(projectRoot);
   if (!inspected.result.valid) {
@@ -181,7 +200,10 @@ export async function buildDesignSystem(projectRoot, outputRoot = null, options 
     const runtimeScopes = system.scopesInOrder.filter((scope) => (
       scope.status === "active" && scope.localTokens.size > 0
     ));
-    await requireScopeCapableConfig(projectRoot, runtimeScopes);
+    const runtimeThemes = system.themesInOrder.filter((theme) => (
+      theme.status === "active" && theme.localTokens.size > 0
+    ));
+    await requireDeltaCapableConfig(projectRoot, runtimeScopes, runtimeThemes, system.themeMap);
 
     const generated = [];
     const coreTarget = {
@@ -199,6 +221,15 @@ export async function buildDesignSystem(projectRoot, outputRoot = null, options 
     }
     generated.push(coreRelative);
 
+    for (const theme of runtimeThemes) {
+      const target = themeBuildTarget(system, theme);
+      await runStyleDictionary(projectRoot, stagingRoot, target, { quiet: options.quiet === true });
+      const cssFile = path.join(stagingRoot, target.destination);
+      if (!(await fileExists(cssFile))) {
+        throw new Error(`Style Dictionary completed without expected Theme CSS output: ${cssFile}`);
+      }
+      generated.push(target.destination);
+    }
     for (const scope of runtimeScopes) {
       const target = scopeBuildTarget(system, scope);
       await runStyleDictionary(projectRoot, stagingRoot, target, { quiet: options.quiet === true });
@@ -224,6 +255,18 @@ export async function buildDesignSystem(projectRoot, outputRoot = null, options 
           ? "reference-only"
           : scope.localTokens.size === 0 ? "empty" : null,
         selector: scope.chain.map((id) => `[data-ds-scope~="${id}"]`).join("")
+      })),
+      themes: system.themesInOrder.map((theme) => ({
+        cssFile: runtimeThemes.includes(theme) ? path.join(destinationRoot, `themes/${theme.id}.css`) : null,
+        id: theme.id,
+        mediaQuery: cssMediaQueryForTheme(theme, system.themeMap),
+        reason: theme.status === "reference-only"
+          ? "reference-only"
+          : theme.localTokens.size === 0 ? "empty" : null,
+        runtimeOwner: theme.runtimeOwner,
+        selector: cssSelectorForTheme(theme, system.themeMap),
+        source: theme.source,
+        status: theme.status
       })),
       tokenCount: inspected.result.core.tokenCount,
       valid: true

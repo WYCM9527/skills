@@ -13,6 +13,7 @@ import {
   walkFiles
 } from "./lib.mjs";
 import { buildDesignSystem } from "./build-tokens.mjs";
+import { inspectChangedFiles } from "./check-drift.mjs";
 import { validateDesignSystem } from "./validate-system.mjs";
 
 async function generatedCssFiles(root) {
@@ -67,15 +68,30 @@ async function main() {
     }
 
     const valid = missingFiles.length === 0 && unexpectedFiles.length === 0 && staleFiles.length === 0;
+    const drift = options.changed === undefined
+      ? null
+      : await inspectChangedFiles(projectRoot, requireStringOption(options, "changed"));
     printJson({
       cssProfile: validation.cssProfile,
       generatedRoot,
       missingFiles,
       scopes: validation.scopes.map((scope) => ({ id: scope.id, selector: scope.selector, status: scope.status })),
       staleFiles,
-      status: valid ? "current" : "stale-generated-output",
+      status: valid
+        ? drift?.status === "needs-steward-review" ? "current-with-drift-candidates" : "current"
+        : "stale-generated-output",
+      themes: validation.themes.map((theme) => ({
+        id: theme.id,
+        mediaQuery: theme.mediaQuery,
+        runtimeOwner: theme.runtimeOwner,
+        selector: theme.selector,
+        source: theme.source,
+        status: theme.status
+      })),
       unexpectedFiles,
-      valid
+      valid,
+      warnings: validation.issues.filter((issue) => issue.severity === "warning"),
+      ...(drift === null ? {} : { drift })
     });
     process.exitCode = valid ? 0 : 1;
   } finally {
