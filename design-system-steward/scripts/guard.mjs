@@ -6,47 +6,78 @@ import path from "node:path";
 import {
   parseArgs,
   printJson,
+  relativePosix,
   reportError,
   requireDirectory,
-  requireStringOption
+  requireStringOption,
+  walkFiles
 } from "./lib.mjs";
-import { runStyleDictionary } from "./build-tokens.mjs";
-import { validateTokenDirectory } from "./tokens.mjs";
+import { buildDesignSystem } from "./build-tokens.mjs";
+import { validateDesignSystem } from "./validate-system.mjs";
+
+async function generatedCssFiles(root) {
+  if (!existsSync(root)) {
+    return [];
+  }
+  return (await walkFiles(root, { ignoredDirectories: new Set() }))
+    .filter((file) => file.endsWith(".css"))
+    .map((file) => relativePosix(root, file))
+    .sort((left, right) => left.localeCompare(right));
+}
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const projectRoot = await requireDirectory(requireStringOption(options, "project"), "--project");
-  const tokensRoot = path.join(projectRoot, "design-system", "tokens");
-  const validation = await validateTokenDirectory(tokensRoot);
+  const validation = await validateDesignSystem(projectRoot);
   if (!validation.valid) {
-    printJson({ ...validation, status: "invalid-tokens" });
+    printJson({ ...validation, status: "invalid-system" });
     process.exitCode = 1;
     return;
   }
 
-  const generatedFile = path.join(projectRoot, "design-system", "dist", "tokens.css");
-  if (!existsSync(generatedFile)) {
-    printJson({
-      generatedFile,
-      status: "missing-generated-output",
-      valid: false
-    });
-    process.exitCode = 1;
-    return;
-  }
-
+  const generatedRoot = path.join(projectRoot, "design-system", "dist");
   const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "design-system-steward-"));
   try {
-    runStyleDictionary(projectRoot, temporaryRoot);
-    const expected = await readFile(generatedFile);
-    const actual = await readFile(path.join(temporaryRoot, "tokens.css"));
-    const current = expected.equals(actual);
+    const rebuilt = await buildDesignSystem(projectRoot, temporaryRoot, { quiet: true });
+    if (!rebuilt.valid) {
+      printJson({ ...rebuilt, status: "invalid-system" });
+      process.exitCode = 1;
+      return;
+    }
+
+    const expectedFiles = await generatedCssFiles(temporaryRoot);
+    const actualFiles = await generatedCssFiles(generatedRoot);
+    const expectedSet = new Set(expectedFiles);
+    const actualSet = new Set(actualFiles);
+    const missingFiles = expectedFiles.filter((file) => !actualSet.has(file));
+    const unexpectedFiles = actualFiles.filter((file) => !expectedSet.has(file));
+    const staleFiles = [];
+
+    for (const relativeFile of expectedFiles) {
+      if (!actualSet.has(relativeFile)) {
+        continue;
+      }
+      const [expected, actual] = await Promise.all([
+        readFile(path.join(temporaryRoot, relativeFile)),
+        readFile(path.join(generatedRoot, relativeFile))
+      ]);
+      if (!expected.equals(actual)) {
+        staleFiles.push(relativeFile);
+      }
+    }
+
+    const valid = missingFiles.length === 0 && unexpectedFiles.length === 0 && staleFiles.length === 0;
     printJson({
-      generatedFile,
-      status: current ? "current" : "stale-generated-output",
-      valid: current
+      cssProfile: validation.cssProfile,
+      generatedRoot,
+      missingFiles,
+      scopes: validation.scopes.map((scope) => ({ id: scope.id, selector: scope.selector, status: scope.status })),
+      staleFiles,
+      status: valid ? "current" : "stale-generated-output",
+      unexpectedFiles,
+      valid
     });
-    process.exitCode = current ? 0 : 1;
+    process.exitCode = valid ? 0 : 1;
   } finally {
     await rm(temporaryRoot, { force: true, recursive: true });
   }

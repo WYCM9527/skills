@@ -18,6 +18,12 @@
 - Semantic token 表示用途。
 - `dist/tokens.css` 是生成物，禁止手改。
 
+## 局部规范／生效范围
+
+- Core 规范默认作用于整个项目；局部差异必须登记在 `scope-map.json`，不能靠零散选择器或目录名称猜测。
+- Scope 只记录相对父级的差异；页面需要完整的 `data-ds-scope` 继承链才会消费对应的运行时 CSS。
+- Theme、单个组件例外和未登记硬编码分别按 Theme、Component Token、Drift 管理，不把它们误建成 Scope。
+
 ## 布局与响应式
 
 - 待根据项目证据填写。

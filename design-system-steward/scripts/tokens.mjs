@@ -46,8 +46,22 @@ function issue(issues, code, message, details = {}) {
   issues.push({ code, message, severity: "error", ...details });
 }
 
-function isObject(value) {
+export function isObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+export function tokenLayerForFile(file) {
+  const basename = path.basename(file);
+  if (basename === "primitives.tokens.json") {
+    return "primitive";
+  }
+  if (basename === "semantic.tokens.json") {
+    return "semantic";
+  }
+  if (basename === "components.tokens.json") {
+    return "component";
+  }
+  return "unknown";
 }
 
 function validatePrimitiveValue(token, issues) {
@@ -175,7 +189,8 @@ function flattenDocument(document, file, root, tokens, issues) {
         path: tokenPath,
         references: collectReferences(node.$value),
         type,
-        value: node.$value
+        value: node.$value,
+        layer: tokenLayerForFile(file)
       });
       return;
     }
@@ -222,7 +237,12 @@ function findCycles(tokens, issues) {
   }
 }
 
-export async function validateTokenDirectory(tokensRoot) {
+/**
+ * Load DTCG CSS-profile token files without resolving aliases. The returned
+ * Map stays internal to script callers so a system validator can compose a
+ * Core plus Scope inheritance chain deterministically.
+ */
+export async function loadTokenDirectory(tokensRoot) {
   const issues = [];
   const tokenFiles = (await walkFiles(tokensRoot, { ignoredDirectories: new Set() }))
     .filter((file) => file.endsWith(".tokens.json"))
@@ -242,10 +262,29 @@ export async function validateTokenDirectory(tokensRoot) {
     flattenDocument(document, file, tokensRoot, tokens, issues);
   }
 
-  if (tokenFiles.length === 0) {
+  return {
+    issues,
+    tokenCount: tokens.size,
+    tokenFiles: tokenFiles.map((file) => relativePosix(tokensRoot, file)),
+    tokens
+  };
+}
+
+/**
+ * Validate already-loaded token records. A system validator can turn an
+ * otherwise dangling alias into a more useful Scope-boundary error.
+ */
+export function validateTokenRecords(tokens, issues, options = {}) {
+  const {
+    allowEmpty = false,
+    tokenFiles = [],
+    onMissingReference
+  } = options;
+
+  if (tokenFiles.length === 0 && !allowEmpty) {
     issue(issues, "no-token-files", "No *.tokens.json files found", {});
   }
-  if (tokens.size === 0 && tokenFiles.length > 0) {
+  if (tokens.size === 0 && tokenFiles.length > 0 && !allowEmpty) {
     issue(issues, "no-tokens", "Token files contain no token values yet", {});
   }
 
@@ -253,10 +292,15 @@ export async function validateTokenDirectory(tokensRoot) {
     for (const reference of token.references) {
       const target = tokens.get(reference);
       if (!target) {
-        issue(issues, "dangling-alias", `${token.path} references missing token ${reference}`, {
-          token: token.path,
-          reference
-        });
+        const handled = typeof onMissingReference === "function"
+          ? onMissingReference(token, reference)
+          : false;
+        if (!handled) {
+          issue(issues, "dangling-alias", `${token.path} references missing token ${reference}`, {
+            token: token.path,
+            reference
+          });
+        }
         continue;
       }
       if (target.type !== token.type) {
@@ -270,13 +314,24 @@ export async function validateTokenDirectory(tokensRoot) {
   }
 
   findCycles(tokens, issues);
-  issues.sort((left, right) => `${left.code}:${left.token ?? ""}:${left.message}`.localeCompare(`${right.code}:${right.token ?? ""}:${right.message}`));
+}
 
+export function finalizeTokenValidation({ issues, tokenCount, tokenFiles }) {
+  issues.sort((left, right) => `${left.code}:${left.token ?? ""}:${left.message}`.localeCompare(`${right.code}:${right.token ?? ""}:${right.message}`));
   return {
     cssProfile: "dtcg-2025.10-css-subset",
     issues,
-    tokenCount: tokens.size,
-    tokenFiles: tokenFiles.map((file) => relativePosix(tokensRoot, file)),
+    tokenCount,
+    tokenFiles,
     valid: issues.length === 0
   };
+}
+
+export async function validateTokenDirectory(tokensRoot, options = {}) {
+  const loaded = await loadTokenDirectory(tokensRoot);
+  validateTokenRecords(loaded.tokens, loaded.issues, {
+    allowEmpty: options.allowEmpty === true,
+    tokenFiles: loaded.tokenFiles
+  });
+  return finalizeTokenValidation(loaded);
 }

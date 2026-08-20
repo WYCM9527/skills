@@ -264,6 +264,11 @@ test("installer materializes one explicit-only skill for each supported host", a
   for (const [host, destination] of [["codex", codex], ["claude", claude], ["cursor", cursor]]) {
     const result = run("render-install.mjs", ["--host", host, "--out", destination]);
     assert.equal(result.status, 0, `${host}: ${result.stderr}`);
+    assert.equal(
+      spawnSync(process.execPath, [path.join(destination, "scripts", "check-skill.mjs")], { encoding: "utf8" }).status,
+      0,
+      `${host}: rendered skill failed its structural validation`
+    );
   }
 
   const codexSkill = await readFile(path.join(codex, "SKILL.md"), "utf8");
@@ -273,6 +278,10 @@ test("installer materializes one explicit-only skill for each supported host", a
   assert.equal(claudeSkill.includes("disable-model-invocation: true"), true);
   assert.equal(cursorSkill.includes("disable-model-invocation: true"), true);
   assert.equal(existsSync(path.join(codex, "agents", "openai.yaml")), true);
+  assert.equal(existsSync(path.join(codex, "scripts", "validate-system.mjs")), true);
+  assert.equal(existsSync(path.join(codex, "scripts", "scaffold-scope.mjs")), true);
+  assert.equal(existsSync(path.join(codex, "references", "scope.md")), true);
+  assert.equal(existsSync(path.join(codex, "assets", "scaffold", "SCOPE.md")), true);
   assert.equal(existsSync(path.join(cursor, "adapters")), false);
   assert.equal(existsSync(path.join(cursor, "package.json")), false);
 });

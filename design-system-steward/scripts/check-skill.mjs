@@ -15,12 +15,17 @@ async function main() {
     "README.md",
     "LICENSE",
     "CHANGELOG.md",
-    "package.json",
-    "agents/openai.yaml",
-    "adapters/claude.frontmatter.yaml",
-    "adapters/cursor.frontmatter.yaml",
     "assets/scaffold/style-dictionary.config.mjs"
   ];
+  const packagePath = path.join(skillRoot, "package.json");
+  const adaptersRoot = path.join(skillRoot, "adapters");
+  const codexPolicyPath = path.join(skillRoot, "agents", "openai.yaml");
+  const hasPackage = await fileExists(packagePath);
+  const hasAdapters = await fileExists(adaptersRoot);
+  const hasCodexPolicy = await fileExists(codexPolicyPath);
+  if (hasPackage) {
+    required.push("package.json", "agents/openai.yaml", "adapters/claude.frontmatter.yaml", "adapters/cursor.frontmatter.yaml");
+  }
   const missing = [];
   for (const relative of required) {
     if (!(await fileExists(path.join(skillRoot, relative)))) {
@@ -29,15 +34,24 @@ async function main() {
   }
 
   const skill = await readFile(path.join(skillRoot, "SKILL.md"), "utf8");
-  const packageJson = JSON.parse(await readFile(path.join(skillRoot, "package.json"), "utf8"));
-  const adapterSkills = (await walkFiles(path.join(skillRoot, "adapters"), { ignoredDirectories: new Set() }))
-    .filter((file) => path.basename(file) === "SKILL.md");
+  const packageJson = hasPackage ? JSON.parse(await readFile(packagePath, "utf8")) : null;
+  const skillVersion = skill.match(/^\s{2}version:\s*["']([^"']+)["']\s*$/m)?.[1] ?? null;
+  const adapterSkills = hasAdapters
+    ? (await walkFiles(adaptersRoot, { ignoredDirectories: new Set() }))
+      .filter((file) => path.basename(file) === "SKILL.md")
+    : [];
+  const hostExplicitOnly = hasCodexPolicy
+    ? (await readFile(codexPolicyPath, "utf8")).includes("allow_implicit_invocation: false")
+    : skill.includes("disable-model-invocation: true");
+  const frontmatterIsHostCompatible = hasCodexPolicy
+    ? !skill.includes("disable-model-invocation:")
+    : skill.includes("disable-model-invocation: true");
   const checks = {
     adapterSkillDuplicates: adapterSkills.length === 0,
-    explicitOnlyCodex: (await readFile(path.join(skillRoot, "agents", "openai.yaml"), "utf8")).includes("allow_implicit_invocation: false"),
+    explicitOnly: hostExplicitOnly,
     portableFrontmatter: /^---\nname: design-system-steward\n[\s\S]*?---\n/.test(skill)
-      && !skill.includes("disable-model-invocation:"),
-    versionMatches: packageJson.version === "0.1.0"
+      && frontmatterIsHostCompatible,
+    versionMatches: !packageJson || packageJson.version === skillVersion
   };
   const valid = missing.length === 0 && Object.values(checks).every(Boolean);
   printJson({ checks, missing, valid });

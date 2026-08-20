@@ -11,6 +11,7 @@ import {
   requireDirectory,
   requireStringOption,
   skillRoot,
+  writeJson,
   writeText
 } from "./lib.mjs";
 
@@ -45,6 +46,10 @@ async function main() {
   await copyScaffold("primitives.tokens.json", path.join(systemRoot, "tokens", "primitives.tokens.json"));
   await copyScaffold("semantic.tokens.json", path.join(systemRoot, "tokens", "semantic.tokens.json"));
   await copyScaffold("style-dictionary.config.mjs", path.join(systemRoot, "style-dictionary.config.mjs"));
+  await writeJson(path.join(systemRoot, "scope-map.json"), {
+    scopes: [],
+    version: 1
+  });
   await writeText(path.join(systemRoot, "dist", ".gitkeep"), "");
 
   if (options["with-components"] === true) {
@@ -73,6 +78,7 @@ async function main() {
       "design-system/TRY.md",
       "design-system/tokens/primitives.tokens.json",
       "design-system/tokens/semantic.tokens.json",
+      "design-system/scope-map.json",
       ...(options["with-components"] === true ? ["design-system/tokens/components.tokens.json"] : []),
       ...(options["with-themes"] === true ? ["design-system/themes/"] : []),
       "design-system/style-dictionary.config.mjs",
