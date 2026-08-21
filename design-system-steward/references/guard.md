@@ -26,4 +26,10 @@ node scripts/guard.mjs --project /absolute/project/path --changed 'src/Page.tsx,
 
 这只扫描名单中的 UI／样式文件，并把颜色、尺寸、任意值 utility、Scope／Theme 标记报告为 `needs-steward-review` 候选；候选不会令 Guard 失败，也不会自动创建 Token。脚本无法可靠判断两个相同数值是否表达同一设计意图，最终由人分类为复用、Drift 或新提案。
 
+## 豁免登记册
+
+`design-system/exemptions.json` 里登记的路径和值是**有意不纳管**的（见 [migrate.md](migrate.md)）：`--changed` 扫描会整文件跳过命中路径（`exempted-by-registry`），并从候选里滤掉命中的值，不再反复盘问已经拍板的决定。
+
+Guard 主输出的 `exemptions.stale` 列出指向已删除文件的豁免——通常意味着你已经主动下线了那块内容，可以顺手清掉对应登记。这只是清理死条目的提示，不影响校验结果，也不会催任何业务决定。
+
 可以在 Token、Scope Map 或 Theme Map 变更的 CI 中运行 Guard。是否接入 CI、使用何种 CI 及何时将警告升为失败，由项目维护者决定。

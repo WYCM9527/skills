@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 — 2026-08-21
+
+- Adds a three-phase `migrate` mode for unifying legacy code onto approved tokens: `adopt` bridges legacy CSS variable definitions, `replace` rewrites matching stylesheet literals and Tailwind arbitrary values, `settle` turns leftovers into merge/promote/exempt decisions. Plans are read-only; `--apply` requires a clean git worktree and writes a `MIGRATION.md` report with per-file diffs and rollback commands.
+- Replacement targets are Semantic-first: primitive-only or ambiguous value hits are never rewritten silently, and JS/TS inline literals are reported but untouched. Color matching normalizes hex case, short hex, and rgb()/rgba(); rem→px conversion is opt-in via `--rem-in-px`.
+- Adds `design-system/exemptions.json`, a reasoned registry of intentionally unmanaged paths and values. Audit, `guard --changed`, and migrate silently skip registered entries; guard reports stale entries whose target files were removed, without any review-date nagging.
+- Adds a read-only `status` mode: token/scope/theme counts, remaining bridgeable and replaceable literals, pending decisions, adoption percentage, and the single best next step.
+- Questionnaires now open with a conservative/recommended/aggressive preset choice; remaining questions use the preset's defaults and only surface on evidence conflicts. Setup now ends by telling the user their current state and the migrate/status next steps.
+- Rewrites the README usage section as a lifecycle journey (day one → first week → daily → anytime) and documents the "adopt or formally exempt, no anonymous leftovers" governance principle.
+
 ## 0.4.0 — 2026-08-21
 
 - Adds a user-facing communication contract and a `setup` mode that merges first-run gates into one questionnaire with recommended answers. Governance gates are unchanged.

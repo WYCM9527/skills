@@ -13,6 +13,17 @@ import {
   isUiStyleFile,
   resolveExistingProjectFile
 } from "./governance-lib.mjs";
+import { createExemptionMatcher, loadExemptions } from "./exemptions.mjs";
+
+function withoutExemptValues(candidates, matcher, relative) {
+  const keep = (value) => !matcher.isValueExempt(relative, value);
+  return {
+    ...candidates,
+    colors: candidates.colors.filter(keep),
+    spacing: candidates.spacing.filter(keep),
+    typography: candidates.typography.filter(keep)
+  };
+}
 
 function changedPaths(value) {
   const paths = value.split(",").map((item) => item.trim()).filter(Boolean);
@@ -28,6 +39,8 @@ function generatedOutput(relative) {
 
 export async function inspectChangedFiles(projectRoot, changed) {
   const requestedPaths = changedPaths(changed);
+  const exemptions = await loadExemptions(projectRoot);
+  const matcher = createExemptionMatcher(exemptions.entries);
   const resolved = new Map();
 
   for (const requested of requestedPaths) {
@@ -42,12 +55,16 @@ export async function inspectChangedFiles(projectRoot, changed) {
       skippedFiles.push({ file: relative, reason: "not-ui-style-file" });
       continue;
     }
+    if (matcher.isFileExempt(relative)) {
+      skippedFiles.push({ file: relative, reason: "exempted-by-registry" });
+      continue;
+    }
     const text = await readTextIfSmall(file);
     if (text === null) {
       skippedFiles.push({ file: relative, reason: "too-large-to-inspect" });
       continue;
     }
-    const candidates = extractVisualCandidates(text);
+    const candidates = withoutExemptValues(extractVisualCandidates(text), matcher, relative);
     const isGeneratedOutput = generatedOutput(relative);
     const hasCandidates = hasVisualCandidates(candidates) || isGeneratedOutput;
     scannedFiles.push({
@@ -63,6 +80,11 @@ export async function inspectChangedFiles(projectRoot, changed) {
   return {
     candidateFiles,
     evidenceLimit: "字面量和 Scope／Theme 标记只是待复核候选；本检查不会推断设计语义、创建 Token 或修改文件。",
+    exemptions: {
+      entryCount: exemptions.entries.length,
+      issues: exemptions.issues,
+      present: exemptions.present
+    },
     nextAction: candidateFiles.length > 0
       ? "逐项确认候选是已有规范的消费、一次性 Drift，还是应先经用户批准的新规范；生成物只可由构建产生。"
       : "本次指定的 UI 样式文件未发现待复核候选。",

@@ -75,7 +75,11 @@ const ISSUE_ZH = {
   "missing-scope-map": "已经有 scopes 目录时，必须先有 scope-map.json",
   "invalid-theme-activation": "主题激活方式只能是 data 属性、class 或系统偏好",
   "theme-primitive-not-allowed": "主题不能另建一套调色盘，只能改用途层的值",
-  "scope-theme-delta-not-managed": "这块局部装修和主题改了同一个用途值；当前不会自动组合，接入前请确认每个主题下看起来都对"
+  "scope-theme-delta-not-managed": "这块局部装修和主题改了同一个用途值；当前不会自动组合，接入前请确认每个主题下看起来都对",
+  "invalid-exemptions-file": "exemptions.json 无法解析，或缺少 exemptions 数组",
+  "invalid-exemption-entry": "豁免条目必须是对象，且 path 是项目内的相对路径",
+  "missing-exemption-reason": "每条豁免都必须写明理由，不能匿名放弃规范化",
+  "stale-exemption": "这条豁免指向的文件已不存在，可以顺手清掉这条登记"
 };
 
 export function localizeIssues(issues) {
@@ -115,6 +119,95 @@ export function srgbToHex(components, alpha = 1) {
 
 export function isScaffoldOnlyDocument(document) {
   return isObject(document) && Object.keys(document).every((key) => key.startsWith("$"));
+}
+
+const DIMENSION_LITERAL_EXPRESSION = /^(-?\d+(?:\.\d+)?)(px|rem|em|%|vw|vh)$/;
+
+/**
+ * Normalize a CSS color literal (#hex, rgb(), rgba()) to a canonical lowercase
+ * hex string, or return null when the text is not a statically resolvable
+ * sRGB color. hsl()/oklch() and var() expressions stay out of scope on purpose.
+ */
+export function normalizeColorLiteral(raw) {
+  if (typeof raw !== "string") {
+    return null;
+  }
+  const text = raw.trim().toLowerCase();
+  const hex = normalizeHex(text);
+  if (hex) {
+    return hex;
+  }
+  const call = text.match(/^rgba?\(\s*([^)]*?)\s*\)$/);
+  if (!call) {
+    return null;
+  }
+  const parts = call[1].split(/[\s,/]+/).filter(Boolean);
+  if (parts.length < 3 || parts.length > 4) {
+    return null;
+  }
+  const channel = (part) => {
+    if (part.endsWith("%")) {
+      const percent = Number(part.slice(0, -1));
+      return Number.isFinite(percent) && percent >= 0 && percent <= 100
+        ? Math.round((percent / 100) * 255)
+        : null;
+    }
+    const value = Number(part);
+    return Number.isFinite(value) && value >= 0 && value <= 255 ? Math.round(value) : null;
+  };
+  const channels = parts.slice(0, 3).map(channel);
+  if (channels.some((value) => value === null)) {
+    return null;
+  }
+  let alpha = 1;
+  if (parts.length === 4) {
+    alpha = parts[3].endsWith("%") ? Number(parts[3].slice(0, -1)) / 100 : Number(parts[3]);
+    if (!Number.isFinite(alpha) || alpha < 0 || alpha > 1) {
+      return null;
+    }
+  }
+  const toByte = (value) => value.toString(16).padStart(2, "0");
+  const body = channels.map(toByte).join("");
+  return alpha < 1 ? `#${body}${toByte(Math.round(alpha * 255))}` : `#${body}`;
+}
+
+/**
+ * Normalize a CSS dimension literal such as `16px` or `1.5rem`. When
+ * `remInPx` is provided, rem values are converted to their px equivalent so
+ * they can match px-based tokens; this stays opt-in because a project may
+ * change its root font size.
+ */
+export function normalizeDimensionLiteral(raw, options = {}) {
+  if (typeof raw !== "string") {
+    return null;
+  }
+  const match = raw.trim().toLowerCase().match(DIMENSION_LITERAL_EXPRESSION);
+  if (!match) {
+    return null;
+  }
+  let value = Number(match[1]);
+  let unit = match[2];
+  if (unit === "rem" && typeof options.remInPx === "number" && Number.isFinite(options.remInPx)) {
+    value *= options.remInPx;
+    unit = "px";
+  }
+  return `${value}${unit}`;
+}
+
+/**
+ * Mirror Style Dictionary's css transform group naming so replacement code
+ * can print `var(--…)` names that match the generated dist output.
+ */
+export function cssVariableNameForTokenPath(tokenPath) {
+  return tokenPath
+    .split(".")
+    .map((segment) => segment
+      .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-"))
+    .join("-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function issue(issues, code, message, details = {}) {

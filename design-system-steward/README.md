@@ -2,7 +2,7 @@
 
 `design-system-steward` 是一个可 Git 版本化的 Agent Skill。它帮助你把一个**指定的 Web 项目**整理成可持续维护的 `design-system/`：先取证，再经人确认把设计决定写入 DTCG Tokens，并让后续 AI 有一条清楚的消费路径。
 
-它不会把任何旧项目一键改造成 Token，也不会自动改页面、创建 dark mode、批量替换硬编码或同步 Figma。
+它不会不经确认改任何东西：不自动改页面、不发明 dark mode、不同步 Figma。想一次性统一存量硬编码时，走 `migrate` 的分层计划——先看只读报告，你确认档位后才动手，且要求 git 可回滚。
 
 ## 适合什么场景
 
@@ -55,25 +55,39 @@ $design-system-steward setup，项目在 /absolute/project/path
 
 它会先只读看现有样式写在哪，再用一份带推荐项的问卷问你；确认前不会改页面。
 
-## 使用顺序
+## 从第一天到日常：完整旅程
 
 每次都要在请求中提供绝对项目根目录；在 monorepo 中要精确到一个 package。
 
+**第一天——建立系统。** 运行 `setup`：只读审计现有样式，把全部闸门合成一份带档位（保守／推荐／激进）的问卷，答完后依次建立 Core／Scope／Theme。这一步只写 `design-system/`，不改任何页面，所以做完后项目视觉零变化——这是正常的，系统先有名分，再统一户口。
+
 ```text
-$design-system-steward setup
-$design-system-steward audit
-$design-system-steward propose
-$design-system-steward apply
-$design-system-steward apply --scope showcase
-$design-system-steward apply --theme dark
-$design-system-steward integrate --scope showcase
-$design-system-steward integrate --theme dark
+$design-system-steward setup，项目在 /absolute/project/path
+```
+
+**第一周——统一存量。** 项目 90% 的旧代码还在用硬编码，AI 续写时会照抄旧写法。想一次性统一就运行 `migrate`：先给只读分层计划（可桥接多少旧变量、可替换多少硬编码、多少要你拍板），确认档位后分阶段执行，每阶段单独提交、自动生成 `MIGRATION.md` 对照与回滚指引。语义不明的值走 `settle` 逐组决定：归并、升级成新 Token，或写明理由豁免。
+
+```text
+$design-system-steward migrate --phase adopt
+$design-system-steward migrate --phase replace
+$design-system-steward migrate --phase settle
+```
+
+**日常——消费与守卫。** 批准三行项目规则写进 `AGENTS.md` 后，普通编码 Agent 会先读设计系统再改 UI。每次改动用 `change` 分流（内容更新／复用／需要提案／Drift），改完 UI 跑 `guard --changed` 复核；接入某个 Scope／Theme 到页面时走 `integrate` 的双确认。
+
+```text
 $design-system-steward change --target src/pages/Signup.tsx
-$design-system-steward experiment
+$design-system-steward integrate --scope showcase
 $design-system-steward guard
 ```
 
-`setup` 把首次审计和提案合成一份问卷，答完后再建立 Core／Scope／Theme。`audit`、`propose`、`change`、`experiment` 与 `guard` 不改生产 UI。`change` 只帮助判断本次是内容更新、已有规则复用、需要提案还是 Drift；`apply` 只在确认后建立登记与 Token 源；`integrate` 先给只读预览，再等一次针对**确切入口文件**的确认，才允许做最小接线。面向用户的确认必须用生活语言和带理由的推荐项，见 [references/communication.md](references/communication.md)。
+**随时——看进度。** 不知道下一步干什么时运行 `status`：它只读输出已纳管数量、剩余未统一数量、豁免数、Token 使用率百分比，和基于当前状态的下一步建议。
+
+```text
+$design-system-steward status
+```
+
+`audit`、`propose`、`change`、`experiment`、`status` 与 `guard` 永不改生产 UI；`apply` 只在确认后建立登记与 Token 源；`integrate` 与 `migrate --apply` 是仅有的两个可以改项目文件的动作，都要求先预览、再确认，后者还要求 git 工作区干净。面向用户的确认必须用生活语言和带理由的推荐项，见 [references/communication.md](references/communication.md)。
 
 ## 最终会得到什么
 
@@ -83,7 +97,9 @@ $design-system-steward guard
 design-system/
 ├── DESIGN.md
 ├── AUDIT.md
+├── MIGRATION.md                    # 统一存量后：最近一次迁移对照与回滚指引
 ├── TRY.md
+├── exemptions.json                 # 有意不纳管的登记册，每条必须有理由
 ├── scope-map.json
 ├── theme-map.json
 ├── tokens/                         # Core，也是确认的默认 Theme

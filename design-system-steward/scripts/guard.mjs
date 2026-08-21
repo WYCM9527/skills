@@ -15,6 +15,7 @@ import {
 import { buildDesignSystem } from "./build-tokens.mjs";
 import { inspectChangedFiles } from "./check-drift.mjs";
 import { validateDesignSystem } from "./validate-system.mjs";
+import { findStaleExemptions, loadExemptions } from "./exemptions.mjs";
 
 async function generatedCssFiles(root) {
   if (!existsSync(root)) {
@@ -71,8 +72,19 @@ async function main() {
     const drift = options.changed === undefined
       ? null
       : await inspectChangedFiles(projectRoot, requireStringOption(options, "changed"));
+    const exemptions = await loadExemptions(projectRoot);
+    const staleExemptions = findStaleExemptions(exemptions.entries, projectRoot);
     printJson({
       cssProfile: validation.cssProfile,
+      exemptions: {
+        entryCount: exemptions.entries.length,
+        issues: exemptions.issues,
+        present: exemptions.present,
+        stale: staleExemptions,
+        ...(staleExemptions.length > 0
+          ? { staleHint: "这些豁免指向的文件已不存在（内容应已主动下线），可以顺手清掉对应登记；不影响本次校验结果。" }
+          : {})
+      },
       generatedRoot,
       missingFiles,
       scopes: validation.scopes.map((scope) => ({ id: scope.id, selector: scope.selector, status: scope.status })),

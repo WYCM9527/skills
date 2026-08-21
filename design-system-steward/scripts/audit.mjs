@@ -12,6 +12,7 @@ import {
   walkFiles,
   writeJson
 } from "./lib.mjs";
+import { createExemptionMatcher, loadExemptions } from "./exemptions.mjs";
 
 const STYLE_EXTENSIONS = new Set([".css", ".scss", ".sass", ".less", ".html", ".jsx", ".tsx", ".js", ".ts", ".vue", ".svelte"]);
 const STYLESHEET_EXTENSIONS = new Set([".css", ".scss", ".sass", ".less"]);
@@ -63,12 +64,16 @@ function isDtcgDocument(text) {
   return /"\$(?:value|type)"\s*:/.test(text);
 }
 
-function matchStaticValues(text, colors, dimensions) {
+function matchStaticValues(text, colors, dimensions, shouldCount) {
   for (const match of text.matchAll(/#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)/g)) {
-    increment(colors, match[0].toLowerCase());
+    if (!shouldCount || shouldCount(match[0])) {
+      increment(colors, match[0].toLowerCase());
+    }
   }
   for (const match of text.matchAll(/(?:^|[^\w.-])(\d+(?:\.\d+)?(?:px|rem|em|%|vw|vh))\b/gm)) {
-    increment(dimensions, match[1]);
+    if (!shouldCount || shouldCount(match[1])) {
+      increment(dimensions, match[1]);
+    }
   }
 }
 
@@ -490,6 +495,9 @@ function sortedCandidates(values) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const projectRoot = await requireDirectory(requireStringOption(options, "project"), "--project");
+  const exemptions = await loadExemptions(projectRoot);
+  const exemptionMatcher = createExemptionMatcher(exemptions.entries);
+  const exemptedFiles = [];
   const files = await walkFiles(projectRoot);
   const cssVariables = [];
   const colors = new Map();
@@ -511,6 +519,10 @@ async function main() {
 
   for (const file of files) {
     const relative = relativePosix(projectRoot, file);
+    if (exemptionMatcher.isFileExempt(relative)) {
+      exemptedFiles.push(relative);
+      continue;
+    }
     const lower = relative.toLowerCase();
     const base = path.basename(file).toLowerCase();
     const ext = extension(file);
@@ -555,7 +567,7 @@ async function main() {
       }
     }
     if (isStyle) {
-      matchStaticValues(text, colors, dimensions);
+      matchStaticValues(text, colors, dimensions, (value) => !exemptionMatcher.isValueExempt(relative, value));
       collectCssVariables(text, file, projectRoot, cssVariables);
       if (isStylesheet) {
         styleEntrypoints.push(relative);
@@ -674,8 +686,15 @@ async function main() {
       "Static files were scanned only inside the specified project root.",
       "Repeated literal values are candidates, not semantic decisions.",
       "Scope and independent-system candidates require grouped static evidence and always need user confirmation.",
-      "Images and Figma exports are recorded as optional evidence; their pixels are not interpreted by this script."
+      "Images and Figma exports are recorded as optional evidence; their pixels are not interpreted by this script.",
+      "Paths and values registered in design-system/exemptions.json are intentionally unmanaged and were skipped."
     ],
+    exemptedFiles: dedupePaths(exemptedFiles),
+    exemptions: {
+      entryCount: exemptions.entries.length,
+      issues: exemptions.issues,
+      present: exemptions.present
+    },
     filesScanned: files.length,
     generatedAt: null,
     imageEvidence: dedupePaths(imageEvidence).slice(0, 30),
