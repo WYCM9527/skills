@@ -148,6 +148,10 @@ test("managed Theme builds a delta, guard detects drift, and planning never rewr
   assert.equal(await readFile(entry, "utf8"), before);
   const themeDocument = await readFile(path.join(projectRoot, "design-system", "themes", "dark", "THEME.md"), "utf8");
   assert.equal(themeDocument.includes("{{"), false);
+  assert.equal(themeDocument.includes("状态：`active`"), true);
+  assert.equal(themeDocument.includes("The existing product has a confirmed dark reading mode."), true);
+  assert.equal(themeDocument.includes(':root[data-theme="dark"]'), true);
+  assert.equal(themeDocument.includes("主题-id"), false);
   await writeJson(path.join(projectRoot, "design-system", "themes", "dark", "tokens", "semantic.tokens.json"), {
     color: {
       $type: "color",

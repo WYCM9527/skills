@@ -43,13 +43,24 @@ node /tmp/wycm9527-skills/design-system-steward/scripts/render-install.mjs \
   --out /absolute/project/.claude/skills/design-system-steward
 ```
 
-安装器只写入通过 `--out` 指定的空目录。三端安装副本都保持显式调用：Codex 使用 `agents/openai.yaml`，Claude Code 与 Cursor 使用各自支持的 `disable-model-invocation: true` 字段。它不会创建或修改项目规则文件。
+安装器只写入通过 `--out` 指定的空目录。三端安装副本都保持显式调用：源码与渲染结果都带 `disable-model-invocation: true`；Codex 另外写入 `agents/openai.yaml`。它不会创建或修改项目规则文件。不要把只为单一宿主渲染的副本放进会被多个产品同时扫描的技能目录。
+
+## 入门咒语
+
+vibe coding、还不熟悉术语时，复制下面这一句，把路径换成你的项目：
+
+```text
+$design-system-steward setup，项目在 /absolute/project/path
+```
+
+它会先只读看现有样式写在哪，再用一份带推荐项的问卷问你；确认前不会改页面。
 
 ## 使用顺序
 
 每次都要在请求中提供绝对项目根目录；在 monorepo 中要精确到一个 package。
 
 ```text
+$design-system-steward setup
 $design-system-steward audit
 $design-system-steward propose
 $design-system-steward apply
@@ -62,7 +73,7 @@ $design-system-steward experiment
 $design-system-steward guard
 ```
 
-`audit`、`propose`、`change`、`experiment` 与 `guard` 不改生产 UI。`change` 只帮助判断本次是内容更新、已有规则复用、需要提案还是 Drift；`apply` 只在确认后建立登记与 Token 源；`integrate` 先给只读预览，再等一次针对**确切入口文件**的确认，才允许做最小接线。
+`setup` 把首次审计和提案合成一份问卷，答完后再建立 Core／Scope／Theme。`audit`、`propose`、`change`、`experiment` 与 `guard` 不改生产 UI。`change` 只帮助判断本次是内容更新、已有规则复用、需要提案还是 Drift；`apply` 只在确认后建立登记与 Token 源；`integrate` 先给只读预览，再等一次针对**确切入口文件**的确认，才允许做最小接线。面向用户的确认必须用生活语言和带理由的推荐项，见 [references/communication.md](references/communication.md)。
 
 ## 最终会得到什么
 
@@ -89,7 +100,7 @@ design-system/
     └── index.css
 ```
 
-不是每个项目都会有 Scope、Theme 或 Component Tokens。Core 一直代表默认主题；不会生成一份重复的 `themes/light/`。v0.3 不自动生成 Scope × Theme 运行时组合，若某个局部规范覆写了在主题间变化的语义值，Guard 会要求人决定如何处理。
+不是每个项目都会有 Scope、Theme 或 Component Tokens。Core 一直代表默认主题；不会生成一份重复的 `themes/light/`。当前版本不自动生成 Scope × Theme 运行时组合，若某个局部规范覆写了在主题间变化的语义值，Guard 会要求人决定如何处理。
 
 ## 后续 AI 如何遵守它
 

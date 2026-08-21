@@ -189,9 +189,9 @@ async function requireDeltaCapableConfig(projectRoot, runtimeScopes, runtimeThem
 /** Build Core, active Themes, then active Scopes in deterministic order. */
 export async function buildDesignSystem(projectRoot, outputRoot = null, options = {}) {
   const inspected = await inspectDesignSystem(projectRoot);
-  if (!inspected.result.valid) {
-    return { ...inspected.result, status: "invalid-system" };
-  }
+    if (!inspected.result.valid) {
+      return { ...inspected.result, status: inspected.result.status ?? "invalid-system" };
+    }
   const system = inspected.internal;
   const destinationRoot = path.resolve(outputRoot ?? path.join(system.systemRoot, "dist"));
   const stagingRoot = await mkdtemp(path.join(os.tmpdir(), "design-system-steward-build-"));

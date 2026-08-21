@@ -6,7 +6,7 @@
 
 ## 当前 CSS Profile
 
-已被构建 fixture 覆盖的基础类型包括：结构化 sRGB `color`、`dimension`、`duration`、`number`、`fontWeight`、`fontFamily`、`cubicBezier`、`string`、`boolean`，以及指向这些 Token 的完整 alias，例如 `"{color.blue.500}"`。结构化 dimension 与 duration 会分别输出为 CSS 长度和时间值；cubicBezier 会输出为 `cubic-bezier(...)`。
+已被构建 fixture 覆盖的基础类型包括：结构化 sRGB `color`（可带与分量一致的可选 `hex`）、`dimension`、`duration`、`number`、`fontWeight`、`fontFamily`、`cubicBezier`、`string`、`boolean`，以及指向这些 Token 的完整 alias，例如 `"{color.blue.500}"`。结构化 dimension 与 duration 会分别输出为 CSS 长度和时间值；cubicBezier 会输出为 `cubic-bezier(...)`。颜色构建优先输出已确认的 `hex`，避免分量换算和展示不一致。
 
 最小示例：
 
@@ -16,11 +16,12 @@
     "blue": {
       "500": {
         "$type": "color",
-        "$value": {
-          "colorSpace": "srgb",
-          "components": [0.145, 0.388, 0.922],
-          "alpha": 1
-        }
+          "$value": {
+            "colorSpace": "srgb",
+            "components": [0.145, 0.388, 0.922],
+            "alpha": 1,
+            "hex": "#2563eb"
+          }
       }
     },
     "action": {

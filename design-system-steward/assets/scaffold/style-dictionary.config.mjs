@@ -87,6 +87,9 @@ function cssValue(token, namesByPath) {
       return target ? `var(--${target.name})` : match;
     });
   }
+  if (original && typeof original === "object" && !Array.isArray(original) && typeof original.hex === "string") {
+    return original.hex.trim();
+  }
 
   const value = token.$value ?? token.value;
   const type = token.$type ?? token.type ?? token.original.$type ?? token.original.type;

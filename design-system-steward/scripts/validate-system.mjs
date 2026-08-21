@@ -15,6 +15,7 @@ import {
 } from "./lib.mjs";
 import {
   loadTokenDirectory,
+  localizeIssues,
   validateTokenRecords
 } from "./tokens.mjs";
 
@@ -611,7 +612,7 @@ export async function inspectDesignSystem(projectRoot) {
     coreLoaded = await loadTokenDirectory(coreTokensRoot);
   } else {
     issue(issues, "missing-core-tokens", "design-system/tokens is required");
-    coreLoaded = { issues: [], tokenCount: 0, tokenFiles: [], tokens: new Map() };
+    coreLoaded = { issues: [], scaffoldOnly: false, tokenCount: 0, tokenFiles: [], tokens: new Map() };
   }
   issues.push(...coreLoaded.issues);
   const coreTokens = enrichTokens(coreLoaded.tokens, "core", "core");
@@ -718,9 +719,17 @@ export async function inspectDesignSystem(projectRoot) {
   }
 
   validateTokenRecords(coreTokens, issues, {
+    allowEmpty: coreLoaded.scaffoldOnly === true,
     onMissingReference: missingReferenceHandler,
     tokenFiles: coreLoaded.tokenFiles
   });
+  if (coreLoaded.scaffoldOnly) {
+    warning(
+      issues,
+      "empty-scaffold",
+      "Token files contain no token values yet。刚初始化，待填入已确认的 token"
+    );
+  }
 
   const themesInOrder = [...themesById.values()]
     .sort((left, right) => left.id.localeCompare(right.id));
@@ -787,7 +796,7 @@ export async function inspectDesignSystem(projectRoot) {
         warning(
           issues,
           "scope-theme-delta-not-managed",
-          `${scope.id}: this Scope overrides Semantic tokens while managed Themes are active. v0.3 does not generate Scope × Theme CSS; confirm the Scope delta is valid in every Theme before integrating it.`,
+          `${scope.id}: this Scope overrides Semantic tokens while managed Themes are active. Current versions do not generate Scope × Theme CSS; confirm the Scope delta is valid in every Theme before integrating it.`,
           { scope: scope.id, themes: activeThemes.map((theme) => theme.id) }
         );
       }
@@ -819,8 +828,10 @@ export async function inspectDesignSystem(projectRoot) {
     tokenCount: theme.loaded?.tokenCount ?? 0,
     tokenFiles: theme.loaded?.tokenFiles ?? []
   }));
-  const sortedIssues = sortIssues(issues);
-  const valid = !sortedIssues.some((current) => current.severity === "error");
+  const sortedIssues = localizeIssues(sortIssues(issues));
+  const hasError = sortedIssues.some((current) => current.severity === "error");
+  const emptyScaffold = coreLoaded.scaffoldOnly === true && !hasError;
+  const valid = !hasError && !emptyScaffold;
   const result = {
     core: {
       tokenCount: coreLoaded.tokenCount,
@@ -833,6 +844,7 @@ export async function inspectDesignSystem(projectRoot) {
       scopeCount: scopesById.size
     },
     scopes: summarizedScopes,
+    status: emptyScaffold ? "empty-scaffold" : undefined,
     themeMap: {
       activation: themeMap?.activation ?? null,
       defaultTheme: themeMap?.defaultTheme ?? null,
@@ -842,6 +854,10 @@ export async function inspectDesignSystem(projectRoot) {
     themes: summarizedThemes,
     valid
   };
+
+  if (result.status === undefined) {
+    delete result.status;
+  }
 
   return {
     internal: {

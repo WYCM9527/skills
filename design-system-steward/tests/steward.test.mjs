@@ -274,7 +274,7 @@ test("installer materializes one explicit-only skill for each supported host", a
   const codexSkill = await readFile(path.join(codex, "SKILL.md"), "utf8");
   const claudeSkill = await readFile(path.join(claude, "SKILL.md"), "utf8");
   const cursorSkill = await readFile(path.join(cursor, "SKILL.md"), "utf8");
-  assert.equal(codexSkill.includes("disable-model-invocation:"), false);
+  assert.equal(codexSkill.includes("disable-model-invocation: true"), true);
   assert.equal(claudeSkill.includes("disable-model-invocation: true"), true);
   assert.equal(cursorSkill.includes("disable-model-invocation: true"), true);
   assert.equal(existsSync(path.join(codex, "agents", "openai.yaml")), true);

@@ -56,9 +56,8 @@ async function main() {
   if (host === "codex") {
     await mkdir(path.join(destination, "agents"), { recursive: true });
     await cp(path.join(skillRoot, "agents", "openai.yaml"), path.join(destination, "agents", "openai.yaml"));
-  } else {
-    await patchExplicitOnlyFrontmatter(path.join(destination, "SKILL.md"));
   }
+  await patchExplicitOnlyFrontmatter(path.join(destination, "SKILL.md"));
 
   printJson({
     destination,

@@ -17,6 +17,21 @@ const STYLE_EXTENSIONS = new Set([".css", ".scss", ".sass", ".less", ".html", ".
 const STYLESHEET_EXTENSIONS = new Set([".css", ".scss", ".sass", ".less"]);
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"]);
 const TOKEN_FILE_NAMES = new Set(["tokens.json", "design-tokens.json", "design.tokens.json"]);
+const THEME_PATH_WORDS = new Set(["theme", "themes", "mode", "modes", "dark", "light"]);
+
+function pathLooksLikeThemeEvidence(relative) {
+  const lower = relative.toLowerCase();
+  const segments = lower.split("/");
+  for (const segment of segments) {
+    const stem = segment.replace(/\.[a-z0-9]+$/i, "");
+    for (const word of stem.split(/[-_.]+/).filter(Boolean)) {
+      if (THEME_PATH_WORDS.has(word)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 const ROUTE_ANCHORS = new Set(["app", "apps", "pages", "page", "routes", "route", "views", "view", "features", "feature", "sections", "section"]);
 const STRUCTURAL_SEGMENTS = new Set([
   "app", "apps", "assets", "common", "components", "component", "content", "features", "feature", "layouts", "layout",
@@ -228,7 +243,6 @@ function extractStyleImports(text) {
 function inferPathScope(relative) {
   const parts = relative.split("/");
   const directories = parts.slice(0, -1);
-  const file = parts.at(-1) ?? "";
   let anchor = -1;
   for (let index = 0; index < directories.length; index += 1) {
     if (ROUTE_ANCHORS.has(directories[index].toLowerCase())) {
@@ -267,13 +281,6 @@ function inferPathScope(relative) {
     if (first) {
       candidates = [first];
       sourceRoot = directories[0];
-    }
-  }
-  if (candidates.length === 0) {
-    const fromFile = scopeIdFromSegment(file);
-    if (fromFile) {
-      candidates = [fromFile];
-      sourceRoot = relative;
     }
   }
   if (candidates.length === 0) {
@@ -419,7 +426,10 @@ function toScopeCandidate(group) {
   const signals = evidenceSignals(group);
   const sourceGlobs = dedupePaths([...group.sourceRoots].map(sourceGlobFromRoot).filter(Boolean));
   const routes = dedupePaths(group.routes);
-  if ((routes.length === 0 && sourceGlobs.length === 0) || signals.length < 2) {
+  const hasLocalContract = signals.some((signal) => (
+    signal.kind === "css-variable-definitions" || signal.kind === "local-design-contract"
+  )) || group.styleEntrypoints.size > 0;
+  if ((routes.length === 0 && sourceGlobs.length === 0) || signals.length < 2 || !hasLocalContract) {
     return null;
   }
 
@@ -524,7 +534,7 @@ async function main() {
     if (IMAGE_EXTENSIONS.has(ext)) {
       imageEvidence.push(relative);
     }
-    if (/(?:^|\/)(?:themes?|modes?)(?:\/|$)|(?:dark|light|theme)/.test(lower)) {
+    if (pathLooksLikeThemeEvidence(relative)) {
       themeEvidence.push(relative);
     }
 

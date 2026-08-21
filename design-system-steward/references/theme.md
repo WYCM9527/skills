@@ -28,7 +28,7 @@ Theme Token 优先覆写 Core Semantic alias；Component delta 仅限已经批�
 | 已有亮／暗模式 | Audit 只收集静态 selector、模式名和文件证据；默认模式、运行时所有者与来源仍由人确认。Propose 后才映射，不改旧 UI。 |
 | 没有 Theme，用户没有要求 | 不创建 `themes/`，不凭空造 dark mode。 |
 | 没有 Theme，用户明确要新增 | 先提案确认模式、默认值、激活方式、运行时所有者、语义映射和验收；不能从当前色值自动反相。 |
-| Scope 有局部差异 | 仍是 Scope；若覆写值随 Theme 变化，停下要求人决定，v0.3 不自动生成 Scope × Theme delta。 |
+| Scope 有局部差异 | 仍是 Scope；若覆写值随 Theme 变化，停下要求人决定，当前版本不自动生成 Scope × Theme delta。 |
 
 ## `apply --theme <id>` 的确认
 

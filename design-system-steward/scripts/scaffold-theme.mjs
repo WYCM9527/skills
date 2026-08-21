@@ -97,14 +97,14 @@ function validateExistingMap(map) {
   return { activation, defaultTheme, map };
 }
 
-function activationLabel(activation) {
+function activationLabel(activation, themeId) {
   if (activation.kind === "data-attribute") {
-    return `:root[${activation.attribute}="主题 id"]`;
+    return `:root[${activation.attribute}="${themeId}"]`;
   }
   if (activation.kind === "class") {
-    return ":root.主题-id";
+    return `:root.${themeId}`;
   }
-  return "@media (prefers-color-scheme: 主题 id)";
+  return `@media (prefers-color-scheme: ${themeId})`;
 }
 
 async function main() {
@@ -175,7 +175,7 @@ async function main() {
     .replaceAll("{{THEME_ID}}", id)
     .replaceAll("{{DEFAULT_THEME}}", defaultTheme)
     .replaceAll("{{STATUS}}", status)
-    .replaceAll("{{ACTIVATION}}", activationLabel(activation))
+    .replaceAll("{{ACTIVATION}}", activationLabel(activation, id))
     .replaceAll("{{SOURCE}}", source)
     .replaceAll("{{RUNTIME_OWNER}}", runtimeOwner)
     .replaceAll("{{REASON}}", reason);

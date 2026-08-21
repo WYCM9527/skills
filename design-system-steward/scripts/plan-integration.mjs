@@ -18,6 +18,8 @@ import {
 
 const ENTRY_EXTENSIONS = new Set([".astro", ".html", ".jsx", ".tsx", ".js", ".ts", ".vue", ".svelte"]);
 const ENTRY_BASENAMES = /^(?:app|index|layout|page|root|route)\.(?:astro|html|jsx|tsx|js|ts|vue|svelte)$/i;
+const GLOBAL_STYLE_BASENAMES = /^(?:app|globals?|index|main|root|style|styles)\.(?:css|scss|sass|less)$/i;
+const GLOBAL_ENTRY_BASENAMES = /^(?:app|index|layout|main|root)\.(?:astro|html|jsx|tsx|js|ts|vue|svelte)$/i;
 
 function validateScopeMap(map) {
   if (!map || typeof map !== "object" || Array.isArray(map) || map.version !== 1 || !Array.isArray(map.scopes)) {
@@ -115,6 +117,33 @@ function candidateScore(relative) {
   return 0;
 }
 
+function globalEntryScore(relative) {
+  if (/(?:^|\/)app\/layout\./i.test(relative) || /^index\.html$/i.test(relative)) {
+    return 50;
+  }
+  if (/(?:^|\/)src\/(?:main|app|root)\./i.test(relative)) {
+    return 40;
+  }
+  if (GLOBAL_STYLE_BASENAMES.test(path.basename(relative))) {
+    return 30;
+  }
+  return 10;
+}
+
+async function discoverGlobalStyleEntries(projectRoot) {
+  const files = await walkFiles(projectRoot);
+  const candidates = [];
+  for (const file of files) {
+    const relative = relativePosix(projectRoot, file);
+    const base = path.basename(relative);
+    const inAppRoot = /(?:^|\/)(?:src|app)(?:\/|$)/.test(relative) || /^index\.html$/i.test(relative);
+    if (GLOBAL_STYLE_BASENAMES.test(base) || (GLOBAL_ENTRY_BASENAMES.test(base) && inAppRoot)) {
+      candidates.push({ relative, score: globalEntryScore(relative) });
+    }
+  }
+  return candidates.sort((left, right) => right.score - left.score || left.relative.localeCompare(right.relative));
+}
+
 async function discoverEntries(projectRoot, sourceGlobs) {
   const files = await walkFiles(projectRoot);
   const candidates = [];
@@ -197,9 +226,11 @@ async function main() {
   }
   const chain = scopeChain(scope, byId);
   const scopeValue = chain.slice(1).join(" ");
+  const globalStyleEntryCandidates = await discoverGlobalStyleEntries(projectRoot);
   const base = {
     cssAggregate: "design-system/dist/index.css",
     dataDsScope: `data-ds-scope="${scopeValue}"`,
+    globalStyleEntryCandidates,
     projectRoot,
     scope: {
       id: scope.id,
@@ -278,6 +309,7 @@ async function main() {
     },
     minimalChangePreview: {
       cssImport: {
+        globalAlternatives: globalStyleEntryCandidates,
         needed: !hasCssImport,
         statement: importStatement,
         target: entry.relative

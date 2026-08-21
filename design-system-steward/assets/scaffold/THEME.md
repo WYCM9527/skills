@@ -6,9 +6,11 @@
 
 - 默认 Theme：`{{DEFAULT_THEME}}`
 - 当前 Theme：`{{THEME_ID}}`
+- 状态：`{{STATUS}}`
 - 激活方式：`{{ACTIVATION}}`
 - 权威来源：`{{SOURCE}}`
 - 运行时所有者：`{{RUNTIME_OWNER}}`
+- 设计理由：{{REASON}}
 
 ## 相对 Core 的设计意图
 

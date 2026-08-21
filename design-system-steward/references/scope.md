@@ -48,7 +48,7 @@ design-system/
 
 禁止 Core 引用子 Scope、Scope 引用子级或兄弟、Scope 覆写 Core Primitive、同级 Scope 边界重叠或父级循环。
 
-有已登记 Theme 时，Scope 覆写一个随 Theme 变化的 Semantic 需要人重新决定：v0.3 不自动创建 Scope × Theme delta。Guard 会报告这个交互，不能靠 CSS 排序猜测结果。
+有已登记 Theme 时，Scope 覆写一个随 Theme 变化的 Semantic 需要人重新决定：当前版本不自动创建 Scope × Theme delta。Guard 会报告这个交互，不能靠 CSS 排序猜测结果。
 
 ## 构建与接入
 

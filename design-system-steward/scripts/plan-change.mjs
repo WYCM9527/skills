@@ -20,9 +20,10 @@ import {
 } from "./governance-lib.mjs";
 
 const ID = /^[a-z][a-z0-9-]*$/;
-const CONTENT_REQUEST = /\b(?:copy|content|text|wording|data)\b|文案|文字|内容|图片|图像|数据/i;
+const CONTENT_REQUEST = /\b(?:copy|content|text|wording|data)\b|文案|文字|内容|图片|图像|数据|板块|模块|区块|栏目|章节|文章|标题文字/i;
 const PROPOSAL_REQUEST = /(?:\b(?:add|create|introduce|define|extend|revise)\s+(?:a\s+|an\s+|the\s+)?(?:new\s+)?(?:design\s*system|design\s*token|token|semantic|primitive|component\s*token|scope|theme)\b|\b(?:cross-page|system-level)\b|(?:新增|新建|添加|创建|定义|扩展|跨页面|跨页|系统级).{0,24}(?:设计系统|设计令牌|token|语义|原子|组件令牌|局部规范|主题)|(?:设计系统|设计令牌|token|语义|原子|组件令牌|局部规范|主题).{0,24}(?:新增|新建|添加|创建|定义|扩展|修订)|(?:修改|调整|修订|替换).{0,24}(?:设计系统|设计令牌|token|语义|原子|组件令牌|局部规范|主题))/i;
 const LITERAL_REQUEST = /#[0-9a-fA-F]{3,8}\b|\b\d+(?:\.\d+)?(?:px|rem|em|%|vw|vh)\b|颜色|间距|圆角|字体|字号|字重|阴影|color|spacing|radius|font(?:\s|-)?size|shadow/i;
+const BEAUTIFY_REQUEST = /好看|美化|高级感|大气|精致|上档次/i;
 
 function validSourceGlob(value) {
   return typeof value === "string"
@@ -304,9 +305,10 @@ function targetRole(relative) {
 
 function requestSignals(request) {
   if (!request) {
-    return { content: false, literal: false, proposal: false };
+    return { beautify: false, content: false, literal: false, proposal: false };
   }
   return {
+    beautify: BEAUTIFY_REQUEST.test(request),
     content: CONTENT_REQUEST.test(request),
     literal: LITERAL_REQUEST.test(request),
     proposal: PROPOSAL_REQUEST.test(request)
@@ -354,10 +356,10 @@ async function main() {
   const signals = requestSignals(typeof options.request === "string" ? options.request : "");
   const reasons = [];
   const contentOnly = role === "project-source"
-    && (!uiStyleFile || (signals.content && !signals.literal && !signals.proposal));
+    && (!uiStyleFile || (signals.content && !signals.literal && !signals.proposal && !signals.beautify));
 
   if (!contentOnly) {
-    if (!designSystemPresent && (uiStyleFile || options.scope !== undefined || options.theme !== undefined || signals.proposal)) {
+    if (!designSystemPresent && (uiStyleFile || options.scope !== undefined || options.theme !== undefined || signals.proposal || signals.beautify)) {
       reasons.push("项目尚未建立 design-system/");
     }
     if (scope.issue) {
@@ -375,12 +377,15 @@ async function main() {
     if (signals.proposal) {
       reasons.push("请求明确涉及可复用或系统级设计决定");
     }
+    if (signals.beautify) {
+      reasons.push("美化类请求通常引入新视觉决定");
+    }
   }
 
   let classification;
   if (reasons.length > 0) {
     classification = "needs-proposal";
-  } else if (contentOnly) {
+  } else if (contentOnly || (signals.content && !signals.literal && !signals.proposal && !signals.beautify)) {
     classification = "content";
   } else if (signals.literal || hasLiteralCandidates(candidates)) {
     classification = "drift";

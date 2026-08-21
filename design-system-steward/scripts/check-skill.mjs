@@ -40,12 +40,9 @@ async function main() {
     ? (await walkFiles(adaptersRoot, { ignoredDirectories: new Set() }))
       .filter((file) => path.basename(file) === "SKILL.md")
     : [];
-  const hostExplicitOnly = hasCodexPolicy
-    ? (await readFile(codexPolicyPath, "utf8")).includes("allow_implicit_invocation: false")
-    : skill.includes("disable-model-invocation: true");
-  const frontmatterIsHostCompatible = hasCodexPolicy
-    ? !skill.includes("disable-model-invocation:")
-    : skill.includes("disable-model-invocation: true");
+  const hostExplicitOnly = skill.includes("disable-model-invocation: true")
+    && (!hasCodexPolicy || (await readFile(codexPolicyPath, "utf8")).includes("allow_implicit_invocation: false"));
+  const frontmatterIsHostCompatible = skill.includes("disable-model-invocation: true");
   const checks = {
     adapterSkillDuplicates: adapterSkills.length === 0,
     explicitOnly: hostExplicitOnly,

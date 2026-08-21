@@ -30,18 +30,18 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const projectRoot = await requireDirectory(requireStringOption(options, "project"), "--project");
   const validation = await validateDesignSystem(projectRoot);
-  if (!validation.valid) {
-    printJson({ ...validation, status: "invalid-system" });
-    process.exitCode = 1;
-    return;
-  }
+    if (!validation.valid) {
+      printJson({ ...validation, status: validation.status ?? "invalid-system" });
+      process.exitCode = 1;
+      return;
+    }
 
   const generatedRoot = path.join(projectRoot, "design-system", "dist");
   const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "design-system-steward-"));
   try {
     const rebuilt = await buildDesignSystem(projectRoot, temporaryRoot, { quiet: true });
     if (!rebuilt.valid) {
-      printJson({ ...rebuilt, status: "invalid-system" });
+      printJson({ ...rebuilt, status: rebuilt.status ?? "invalid-system" });
       process.exitCode = 1;
       return;
     }

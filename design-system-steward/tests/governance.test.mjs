@@ -105,6 +105,21 @@ test("plan-change classifies content, consumption, proposals, and literal Drift 
   assert.deepEqual(drift.evidence.candidateVisualLiterals.typography, ["13px"]);
   assert.equal(drift.evidenceLimit.includes("不会推断 Token 的语义"), true);
 
+  const sectionCopy = jsonOutput(run("plan-change.mjs", [
+    "--project", projectRoot,
+    "--target", "src/showcase/legacy.tsx",
+    "--request", "这个页面加个介绍板块"
+  ]));
+  assert.equal(sectionCopy.classification, "content");
+
+  const beautify = jsonOutput(run("plan-change.mjs", [
+    "--project", projectRoot,
+    "--target", "src/showcase/page.tsx",
+    "--request", "帮我把页面弄好看一点"
+  ]));
+  assert.equal(beautify.classification, "needs-proposal");
+  assert.equal(beautify.reasons.includes("美化类请求通常引入新视觉决定"), true);
+
   const proposal = jsonOutput(run("plan-change.mjs", [
     "--project", projectRoot,
     "--target", "src/core/Card.tsx",

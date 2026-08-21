@@ -138,7 +138,7 @@ async function main() {
   const id = requireStringOption(options, "theme");
   const inspected = await inspectDesignSystem(projectRoot);
   if (!inspected.result.valid) {
-    printJson({ ...inspected.result, status: "invalid-system", uiSourceChanged: false, writes: false });
+    printJson({ ...inspected.result, status: inspected.result.status ?? "invalid-system", uiSourceChanged: false, writes: false });
     process.exitCode = 1;
     return;
   }

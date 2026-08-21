@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 — 2026-08-21
+
+- Adds a user-facing communication contract and a `setup` mode that merges first-run gates into one questionnaire with recommended answers. Governance gates are unchanged.
+- Fixes Theme scaffolding so `THEME.md` keeps status and reason, and activation labels use the real Theme id.
+- Tightens audit Scope and Theme evidence so global stylesheets, ordinary page literals, and `highlight`/`darken` filenames are not promoted as candidates.
+- Classifies everyday Chinese content and beautify requests more accurately in `change`, and distinguishes an empty scaffold from a broken system.
+- Accepts a DTCG `hex` field on structured sRGB colors, checks it against components, and prefers that hex in generated CSS.
+- Writes `disable-model-invocation: true` for every host, localizes validator messages, and lists global stylesheet entry candidates in Scope integration previews.
+
 ## 0.3.0 — 2026-08-20
 
 - Adds a confirmed Theme governance path: Core represents the approved default mode; `theme-map.json` registers activation and managed modes; Theme directories store only DTCG deltas relative to Core.

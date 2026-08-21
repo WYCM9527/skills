@@ -9,7 +9,7 @@
 3. Scope 树的父级、循环、ID、边界与同级重叠；
 4. Theme Map 的默认模式、受控激活信息和 Theme 目录／引用关系；
 5. 覆写方向：Core 不引用子级，Scope 不引用子级／兄弟且不覆写 Core Primitive，Theme 只覆写允许的 Semantic 或批准的 Component 例外；
-6. Scope 覆写与 Theme delta 同时涉及同一 Semantic 时的待决交互；v0.3 不自动制造 Scope × Theme 输出；
+6. Scope 覆写与 Theme delta 同时涉及同一 Semantic 时的待决交互；当前版本不自动制造 Scope × Theme 输出；
 7. `dist/tokens.css`、`dist/themes/*.css`、`dist/scopes/*.css` 与 `dist/index.css` 是否缺失、陈旧或多余。
 
 ```text
