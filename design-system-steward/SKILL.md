@@ -5,7 +5,7 @@ license: MIT
 compatibility: Node.js 22+ is required for the optional deterministic helper scripts. Any project write requires explicit user confirmation.
 disable-model-invocation: true
 metadata:
-  version: "0.5.0"
+  version: "0.6.0"
 ---
 
 # Design System Steward
@@ -50,11 +50,11 @@ metadata:
 | `apply --theme <id>` | 经确认登记 Theme delta，不改 UI 或切换机制 | [theme](references/theme.md)、[apply](references/apply.md) |
 | `integrate --scope <id>` | 预览后才可最小接入一个 Scope | [integrate](references/integrate.md) |
 | `integrate --theme <id>` | 预览后才可最小接入一个已登记 Theme | [theme](references/theme.md)、[integrate](references/integrate.md) |
-| `migrate --phase adopt/replace/settle` | 分层统一存量：桥接旧变量、替换同值硬编码、结案待决项；默认只读计划，`--apply` 需 git 干净 | [migrate](references/migrate.md) |
-| `status` | 只读进度视图：纳管数、剩余未统一数、豁免数与下一步建议 | [migrate](references/migrate.md) |
+| `migrate --phase adopt/replace/settle` | 分层统一存量：桥接旧变量、按 CSS 属性匹配后替换同值硬编码、结案待决项（`settle --apply --decisions-file` 落地已确认的归并与豁免）；默认只读计划，`--apply` 需 git 干净 | [migrate](references/migrate.md) |
+| `status` | 只读进度视图：页面里的硬编码债、可桥接 / 可替换数、待决数、豁免数与下一步建议——**不检查构建一致性**（那是 `guard`） | [migrate](references/migrate.md) |
 | `change --target <path>` | 只读分流内容、复用、提案或 Drift；不自动写系统 | [governance](references/governance.md) |
 | `experiment` | 在可回滚范围验证，不改生产 UI | [governance](references/governance.md) |
-| `guard` | 只读校验引用、边界与生成物漂移 | [guard](references/guard.md) |
+| `guard` | 只读校验 Token 引用、Scope / Theme 边界与 `dist` 生成物漂移——**不扫描页面里的字面量**（那是 `status` / `migrate`），`--changed` 只对点名的文件报候选 | [guard](references/guard.md) |
 
 ## 写入闸门
 

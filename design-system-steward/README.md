@@ -65,7 +65,7 @@ $design-system-steward setup，项目在 /absolute/project/path
 $design-system-steward setup，项目在 /absolute/project/path
 ```
 
-**第一周——统一存量。** 项目 90% 的旧代码还在用硬编码，AI 续写时会照抄旧写法。想一次性统一就运行 `migrate`：先给只读分层计划（可桥接多少旧变量、可替换多少硬编码、多少要你拍板），确认档位后分阶段执行，每阶段单独提交、自动生成 `MIGRATION.md` 对照与回滚指引。语义不明的值走 `settle` 逐组决定：归并、升级成新 Token，或写明理由豁免。
+**第一周——统一存量。** 项目 90% 的旧代码还在用硬编码，AI 续写时会照抄旧写法。想一次性统一就运行 `migrate`：先给只读分层计划（可桥接多少旧变量、可替换多少硬编码、多少要你拍板），确认档位后分阶段执行，每阶段单独提交、自动生成 `MIGRATION.md` 对照与回滚指引。字面量按所在 CSS 属性匹配同类 Token（`font-size: 14px` 不会被当成单元格内边距），注释里的值不算。语义不明的值走 `settle` 逐组决定：归并、升级成新 Token，或写明理由豁免。
 
 ```text
 $design-system-steward migrate --phase adopt

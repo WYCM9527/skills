@@ -129,6 +129,81 @@ export async function readJson(filePath) {
   return JSON.parse(await readFile(filePath, "utf8"));
 }
 
+const LINE_COMMENT_EXTENSIONS = new Set([
+  ".astro", ".cjs", ".js", ".jsx", ".less", ".mjs", ".sass", ".scss", ".svelte", ".ts", ".tsx", ".vue"
+]);
+const MARKUP_COMMENT_EXTENSIONS = new Set([".astro", ".html", ".svelte", ".vue"]);
+
+/**
+ * Replace comment bodies with spaces so scanners never count a literal that
+ * only lives in a comment (`/* 12px 示意 *\/`, `// #fff fallback`), while every
+ * character offset and line number of the original text stays valid.
+ * String-aware: `//` inside quotes or `url(http://…)` is not a comment.
+ */
+export function blankComments(text, extension = ".css") {
+  if (typeof text !== "string" || text.length === 0) {
+    return text;
+  }
+  const ext = String(extension).toLowerCase();
+  const allowLine = LINE_COMMENT_EXTENSIONS.has(ext);
+  const allowMarkup = MARKUP_COMMENT_EXTENSIONS.has(ext);
+  const out = text.split("");
+  const blank = (from, to) => {
+    for (let index = from; index < to; index += 1) {
+      if (out[index] !== "\n" && out[index] !== "\r") {
+        out[index] = " ";
+      }
+    }
+  };
+  let index = 0;
+  let quote = null;
+  while (index < text.length) {
+    const char = text[index];
+    const next = text[index + 1];
+    if (quote) {
+      if (char === "\\") {
+        index += 2;
+        continue;
+      }
+      if (char === quote || (quote !== "`" && char === "\n")) {
+        quote = null;
+      }
+      index += 1;
+      continue;
+    }
+    if (char === "'" || char === "\"" || char === "`") {
+      quote = char;
+      index += 1;
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      const end = text.indexOf("*/", index + 2);
+      const stop = end < 0 ? text.length : end + 2;
+      blank(index, stop);
+      index = stop;
+      continue;
+    }
+    if (allowLine && char === "/" && next === "/" && text[index - 1] !== ":") {
+      let end = text.indexOf("\n", index);
+      if (end < 0) {
+        end = text.length;
+      }
+      blank(index, end);
+      index = end;
+      continue;
+    }
+    if (allowMarkup && text.startsWith("<!--", index)) {
+      const end = text.indexOf("-->", index + 4);
+      const stop = end < 0 ? text.length : end + 3;
+      blank(index, stop);
+      index = stop;
+      continue;
+    }
+    index += 1;
+  }
+  return out.join("");
+}
+
 export async function writeJson(filePath, value) {
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, `${JSON.stringify(stableValue(value), null, 2)}\n`, "utf8");

@@ -2,6 +2,8 @@
 
 `guard` 的职责是发现不一致、边界错误和生成物漂移；它不会修改 Token、地图、页面或 CSS。
 
+**与 `status` 的分工**：guard 只看 `design-system/` 自身——Token 引用、Scope / Theme 登记、`dist` 是否与源一致；页面里还有多少硬编码、多少值等人拍板、统一到了几成，是 `status` 与 `migrate --phase settle` 的事。两个脚本的输出都带 `checks` / `notCovered` 字段说明这条边界，`guard: current` 不代表页面没有字面量债。
+
 它检查：
 
 1. Core、Scope 与 Theme Token 的类型、alias 目标和循环；

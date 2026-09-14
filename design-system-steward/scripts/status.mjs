@@ -128,6 +128,8 @@ export async function collectStatus(projectRoot) {
       percent: adoptionPercent,
       varUsages
     },
+    checks: "存量统一进度：页面里的 var(--…) 使用量、可桥接 / 可替换的硬编码、待决项、豁免",
+    notCovered: "dist 是否陈旧、Token 引用与边界是否合法不在 status 范围内——看 guard",
     migration: {
       bridgeable,
       pendingDecisions: pendingCount,

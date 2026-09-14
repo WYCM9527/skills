@@ -75,7 +75,9 @@ async function main() {
     const exemptions = await loadExemptions(projectRoot);
     const staleExemptions = findStaleExemptions(exemptions.entries, projectRoot);
     printJson({
+      checks: "design-system 内部一致性：Token 引用与边界、Scope / Theme 登记、dist 生成物是否陈旧；加 --changed 时只对名单里的文件报未分类的视觉字面量候选",
       cssProfile: validation.cssProfile,
+      notCovered: "页面里的硬编码字面量、可桥接 / 可替换数量、待决项与统一进度不在 guard 范围内——看 status（或 migrate --phase settle）",
       exemptions: {
         entryCount: exemptions.entries.length,
         issues: exemptions.issues,

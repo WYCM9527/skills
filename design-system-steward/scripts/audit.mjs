@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import {
+  blankComments,
   parseArgs,
   printJson,
   readTextIfSmall,
@@ -567,8 +568,9 @@ async function main() {
       }
     }
     if (isStyle) {
-      matchStaticValues(text, colors, dimensions, (value) => !exemptionMatcher.isValueExempt(relative, value));
-      collectCssVariables(text, file, projectRoot, cssVariables);
+      const code = blankComments(text, ext);   // 注释里的示意值（/* 12px */、// #fff）不算证据
+      matchStaticValues(code, colors, dimensions, (value) => !exemptionMatcher.isValueExempt(relative, value));
+      collectCssVariables(code, file, projectRoot, cssVariables);
       if (isStylesheet) {
         styleEntrypoints.push(relative);
       }

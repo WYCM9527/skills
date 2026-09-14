@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
+  blankComments,
   isCompleteAlias,
   parseArgs,
   printJson,
@@ -70,8 +71,9 @@ export async function loadManagedValueIndex(projectRoot, options = {}) {
   const tokensRoot = path.join(projectRoot, "design-system", "tokens");
   const loaded = await loadTokenDirectory(tokensRoot).catch(() => null);
   const index = new Map();
+  const byPath = new Map();
   if (!loaded) {
-    return { index, issues: [{ code: "missing-core-tokens", message: "design-system/tokens was not found", severity: "error" }], tokenCount: 0 };
+    return { byPath, index, issues: [{ code: "missing-core-tokens", message: "design-system/tokens was not found", severity: "error" }], tokenCount: 0 };
   }
   for (const token of loaded.tokens.values()) {
     const resolved = resolveTokenValue(token, loaded.tokens);
@@ -95,6 +97,7 @@ export async function loadManagedValueIndex(projectRoot, options = {}) {
       path: token.path,
       type: token.type
     };
+    byPath.set(token.path, entry);
     const bucket = index.get(normalized) ?? [];
     bucket.push(entry);
     index.set(normalized, bucket);
@@ -102,23 +105,134 @@ export async function loadManagedValueIndex(projectRoot, options = {}) {
   for (const bucket of index.values()) {
     bucket.sort((left, right) => left.path.localeCompare(right.path));
   }
-  return { index, issues: loaded.issues, tokenCount: loaded.tokens.size };
+  return { byPath, index, issues: loaded.issues, tokenCount: loaded.tokens.size };
+}
+
+/**
+ * CSS property → value category. A literal is only allowed to match tokens
+ * whose path belongs to the same category, so `font-size: 14px` never gets
+ * `table.cell.padding-y` offered and `padding: 14px` never gets `text.body.size`.
+ * Unknown properties fall back to value-only matching.
+ */
+const PROPERTY_CATEGORIES = [
+  [/^font-size$/, "font-size"],
+  [/^line-height$/, "line-height"],
+  [/^letter-spacing$/, "letter-spacing"],
+  [/^(?:padding|margin|gap|row-gap|column-gap|inset|top|right|bottom|left|scroll-margin|scroll-padding|text-indent)(?:-[a-z]+)*$/, "spacing"],
+  [/^(?:min-|max-)?(?:width|height|block-size|inline-size)$|^flex-basis$/, "size"],
+  [/^border(?:-[a-z]+)*-radius$/, "radius"],
+  [/^(?:border(?:-(?:top|right|bottom|left|inline|block)(?:-[a-z]+)?)?(?:-width)?|outline(?:-width)?)$/, "border"],
+  [/^(?:color|-webkit-text-fill-color|caret-color|text-decoration-color)$/, "text-color"],
+  [/^background(?:-color)?$/, "background-color"],
+  [/^(?:fill|stroke)$/, "icon-color"],
+  [/^(?:box-shadow|text-shadow|filter)$/, "shadow"]
+];
+const DIMENSION_CATEGORY_FIT = {
+  "font-size": (tokenPath) => /(?:^|\.)(?:text|font|typography)\.[^.]*(?:\.size|size$)|(?:^|\.)icon\.size|font\.size/.test(tokenPath),
+  "line-height": (tokenPath) => /line-height/.test(tokenPath),
+  "letter-spacing": (tokenPath) => /tracking|letter-spacing/.test(tokenPath),
+  spacing: (tokenPath) => /(?:^|\.)(?:spacing|space)\.|padding|gap|inset|offset/.test(tokenPath) && !/line-height|\bsize\b/.test(tokenPath),
+  size: (tokenPath) => /(?:^|\.)size\.|width|height|(?:^|\.)(?:layout|control|icon|avatar|illustration)\./.test(tokenPath) && !/padding|line-height|border\.width|ring\.width/.test(tokenPath),
+  radius: (tokenPath) => /radius/.test(tokenPath),
+  border: (tokenPath) => /border\.width|ring\.width|(?:^|\.)width\./.test(tokenPath)
+};
+const COLOR_CATEGORY_FIT = {
+  "text-color": (tokenPath) => /(?:^|\.)color\.(?:text|status|data|icon|link)\./.test(tokenPath) && !/-bg$|\.bg$|\.bg\./.test(tokenPath),
+  "background-color": (tokenPath) => /(?:^|\.)color\.(?:bg|action|surface|brand)\.|-bg$|\.bg$|\.bg\./.test(tokenPath),
+  border: (tokenPath) => /(?:^|\.)color\.(?:border|focus)\.|border-color|focus\.ring/.test(tokenPath),
+  "icon-color": (tokenPath) => /(?:^|\.)color\.(?:icon|chart|data|status)\./.test(tokenPath),
+  shadow: (tokenPath) => /shadow|elevation/.test(tokenPath)
+};
+
+export function propertyCategory(property) {
+  if (typeof property !== "string" || !property) {
+    return null;
+  }
+  const normalized = property.trim().toLowerCase();
+  for (const [expression, category] of PROPERTY_CATEGORIES) {
+    if (expression.test(normalized)) {
+      return category;
+    }
+  }
+  return null;
+}
+
+export function tokenFitsProperty(entry, property) {
+  const category = propertyCategory(property);
+  if (!category) {
+    return true;
+  }
+  const table = entry.type === "color" ? COLOR_CATEGORY_FIT : DIMENSION_CATEGORY_FIT;
+  const fit = table[category];
+  return fit ? fit(entry.path) : true;
 }
 
 /**
  * Semantic-first choice: a single Semantic token wins; several Semantic
  * tokens with the same value are ambiguous; a Primitive-only or
  * Component-only hit needs a human to name the intent first.
+ * When the CSS property is known, candidates are first narrowed to the
+ * property's category (see PROPERTY_CATEGORIES); the plan records
+ * `matchedBy: "property"` / `narrowedBy` so reviewers can see the narrowing.
  */
-export function chooseTokenForValue(entries) {
+export function chooseTokenForValue(entries, property = null) {
   const semantic = entries.filter((entry) => entry.layer === "semantic");
-  if (semantic.length === 1) {
-    return { match: semantic[0] };
+  const pool = semantic.length > 0 ? semantic : entries;
+  let narrowed = pool;
+  let byProperty = false;
+  if (property && propertyCategory(property)) {
+    const fitting = pool.filter((entry) => tokenFitsProperty(entry, property));
+    if (fitting.length > 0 && fitting.length < pool.length) {
+      narrowed = fitting;
+      byProperty = true;
+    }
   }
-  if (semantic.length > 1) {
-    return { options: semantic, pending: "ambiguous-semantic" };
+  if (semantic.length > 0) {
+    if (narrowed.length === 1) {
+      return { match: narrowed[0], ...(byProperty ? { matchedBy: "property" } : {}) };
+    }
+    return {
+      options: narrowed,
+      pending: "ambiguous-semantic",
+      ...(byProperty ? { allOptions: semantic.length, narrowedBy: property } : {})
+    };
   }
-  return { options: entries, pending: "primitive-only" };
+  return { options: narrowed, pending: "primitive-only", ...(byProperty ? { narrowedBy: property } : {}) };
+}
+
+/** Tailwind utility prefix → the CSS property it sets (used for category narrowing). */
+const TAILWIND_PREFIX_PROPERTIES = new Map([
+  ["p", "padding"], ["px", "padding"], ["py", "padding"], ["pt", "padding"], ["pr", "padding"], ["pb", "padding"], ["pl", "padding"], ["ps", "padding"], ["pe", "padding"],
+  ["m", "margin"], ["mx", "margin"], ["my", "margin"], ["mt", "margin"], ["mr", "margin"], ["mb", "margin"], ["ml", "margin"], ["ms", "margin"], ["me", "margin"],
+  ["space-x", "margin"], ["space-y", "margin"], ["gap", "gap"], ["gap-x", "gap"], ["gap-y", "gap"],
+  ["inset", "inset"], ["top", "top"], ["right", "right"], ["bottom", "bottom"], ["left", "left"],
+  ["w", "width"], ["h", "height"], ["size", "width"], ["min-w", "min-width"], ["max-w", "max-width"], ["min-h", "min-height"], ["max-h", "max-height"], ["basis", "flex-basis"],
+  ["leading", "line-height"], ["tracking", "letter-spacing"], ["bg", "background-color"], ["fill", "fill"], ["stroke", "stroke"], ["shadow", "box-shadow"]
+]);
+export function propertyForTailwindPrefix(prefix, kind) {
+  if (typeof prefix !== "string") {
+    return null;
+  }
+  const exact = TAILWIND_PREFIX_PROPERTIES.get(prefix);
+  if (exact) {
+    return exact;
+  }
+  if (prefix === "text") {
+    return kind === "color" ? "color" : "font-size";
+  }
+  if (prefix === "border" || prefix.startsWith("border-") || prefix === "outline" || prefix.startsWith("outline-") || prefix === "ring") {
+    return kind === "color" ? "border-color" : "border-width";
+  }
+  if (prefix === "rounded" || prefix.startsWith("rounded-")) {
+    return "border-radius";
+  }
+  if (prefix.startsWith("scroll-m")) {
+    return "scroll-margin";
+  }
+  if (prefix.startsWith("scroll-p")) {
+    return "scroll-padding";
+  }
+  return null;
 }
 
 function lineNumberAt(text, index) {
@@ -188,11 +302,12 @@ export async function planAdopt(projectRoot, { index, matcher, files, normalizeO
       exemptedFiles.push(relative);
       continue;
     }
-    const text = await readTextIfSmall(file);
-    if (text === null) {
+    const source = await readTextIfSmall(file);
+    if (source === null) {
       skipped.push({ file: relative, reason: "too-large-to-inspect" });
       continue;
     }
+    const text = blankComments(source, path.extname(file));
     const edits = [];
     for (const match of text.matchAll(VARIABLE_DEFINITION_EXPRESSION)) {
       const name = match[1];
@@ -283,11 +398,12 @@ export async function planReplace(projectRoot, { index, matcher, files, normaliz
       exemptedFiles.push(relative);
       continue;
     }
-    const text = await readTextIfSmall(file);
-    if (text === null) {
+    const source = await readTextIfSmall(file);
+    if (source === null) {
       skipped.push({ file: relative, reason: "too-large-to-inspect" });
       continue;
     }
+    const text = blankComments(source, extensionName);
     const edits = [];
 
     if (isStylesheet) {
@@ -318,13 +434,14 @@ export async function planReplace(projectRoot, { index, matcher, files, normaliz
           pushPendingLiteral(unmanaged, literal.normalized, raw.toLowerCase(), relative);
           continue;
         }
-        const chosen = chooseTokenForValue(bucket);
+        const chosen = chooseTokenForValue(bucket, property);
         if (chosen.pending) {
           pending.push({
             file: relative,
             kind: chosen.pending,
             line,
             options: chosen.options.map((entry) => entry.path),
+            ...(chosen.narrowedBy ? { allOptions: chosen.allOptions, narrowedBy: chosen.narrowedBy } : {}),
             property,
             value: raw
           });
@@ -335,6 +452,7 @@ export async function planReplace(projectRoot, { index, matcher, files, normaliz
           end: startIndex + raw.length,
           kind: "literal",
           line,
+          ...(chosen.matchedBy ? { matchedBy: chosen.matchedBy } : {}),
           oldValue: raw,
           property,
           replacement: `var(--${chosen.match.cssVariable})`,
@@ -363,13 +481,14 @@ export async function planReplace(projectRoot, { index, matcher, files, normaliz
           pushPendingLiteral(unmanaged, literal.normalized, inner.toLowerCase(), relative);
           continue;
         }
-        const chosen = chooseTokenForValue(bucket);
+        const chosen = chooseTokenForValue(bucket, propertyForTailwindPrefix(match[1], literal.kind));
         if (chosen.pending) {
           pending.push({
             file: relative,
             kind: chosen.pending,
             line,
             options: chosen.options.map((entry) => entry.path),
+            ...(chosen.narrowedBy ? { allOptions: chosen.allOptions, narrowedBy: chosen.narrowedBy } : {}),
             property: match[1],
             value: match[0]
           });
@@ -380,6 +499,7 @@ export async function planReplace(projectRoot, { index, matcher, files, normaliz
           end: match.index + match[0].length,
           kind: "tailwind-arbitrary",
           line,
+          ...(chosen.matchedBy ? { matchedBy: chosen.matchedBy } : {}),
           oldValue: match[0],
           property: match[1],
           replacement: `${match[1]}-[var(--${chosen.match.cssVariable})]`,
@@ -431,6 +551,7 @@ function publicChanges(changes) {
     edits: change.edits.map((edit) => ({
       kind: edit.kind,
       line: edit.line,
+      ...(edit.matchedBy ? { matchedBy: edit.matchedBy } : {}),
       ...(edit.name ? { name: edit.name } : {}),
       ...(edit.property ? { property: edit.property } : {}),
       oldValue: edit.oldValue,
@@ -457,7 +578,7 @@ function ensureSafeToWrite(projectRoot, options) {
       + "项目没有版本控制，改坏了无法一键回退；请先 git init 并提交一次，或在明确接受风险后加 --force。"
     );
   }
-  if (safety.repo && safety.dirty && options.allowDirty !== true) {
+  if (safety.repo && safety.dirty && options["allow-dirty"] !== true && options.allowDirty !== true) {   // 文档写的是 --allow-dirty；0.5 只认 allowDirty，标志从未生效
     throw new Error(
       "Refusing to write: the git worktree has uncommitted changes. "
       + "工作区还有未提交的改动，混在一起就无法单独回滚本次迁移；请先 commit 或 stash，或加 --allow-dirty。"
@@ -578,14 +699,165 @@ export async function planSettle(projectRoot, { index, matcher, files, normalize
   };
 }
 
-async function applyExemptionsFile(projectRoot, exemptionsFile, existingEntries) {
-  const document = await readJson(exemptionsFile);
-  const issues = [];
-  const incoming = validateExemptionEntries(isObject(document) ? document.exemptions : null, issues);
-  if (issues.length > 0) {
-    const details = issues.map((entry) => entry.message).join("; ");
-    throw new Error(`--exemptions-file is invalid: ${details}`);
+/**
+ * Merge decisions confirmed in settle: `{ value, token, property?, name?, files? }`.
+ * Each decision rewrites the literal (or legacy definition) it names to
+ * `var(--token)`. Only stylesheets and Tailwind arbitrary values are rewritten;
+ * JS literals stay reported. Unknown tokens abort before anything is written.
+ */
+export function validateMergeDecisions(merges, byPath) {
+  if (merges === undefined || merges === null) {
+    return [];
   }
+  if (!Array.isArray(merges)) {
+    throw new Error("decisions.merges must be an array of { value, token, property?, name?, files? }");
+  }
+  return merges.map((decision, position) => {
+    if (!isObject(decision) || typeof decision.token !== "string" || (typeof decision.value !== "string" && typeof decision.name !== "string")) {
+      throw new Error(`decisions.merges[${position}] needs a string token and a string value (or a legacy variable name)`);
+    }
+    const entry = byPath.get(decision.token);
+    if (!entry) {
+      throw new Error(`decisions.merges[${position}] points to an unknown token: ${decision.token}`);
+    }
+    const literal = typeof decision.value === "string" ? normalizeLiteral(decision.value) : null;
+    if (typeof decision.value === "string" && !literal) {
+      throw new Error(`decisions.merges[${position}] has a value that is neither a color nor a px/rem dimension: ${decision.value}`);
+    }
+    return {
+      entry,
+      files: Array.isArray(decision.files) ? decision.files.map(String) : null,
+      name: typeof decision.name === "string" ? decision.name : null,
+      normalized: literal ? literal.normalized : null,
+      property: typeof decision.property === "string" ? decision.property.trim().toLowerCase() : null,
+      token: decision.token
+    };
+  });
+}
+
+export async function planMerges(projectRoot, { merges, matcher, files, normalizeOptions }) {
+  const changes = [];
+  const warnings = [];
+  for (const decision of merges) {
+    if (decision.entry.layer !== "semantic") {
+      warnings.push(`merge → ${decision.token} 是 ${decision.entry.layer} 层 Token；治理约定消费端应使用 Semantic 层，请确认这是有意为之。`);
+    }
+  }
+  const fileAllowed = (decision, relative) => !decision.files || decision.files.some((pattern) => relative === pattern || relative.startsWith(pattern.replace(/\*\*?$/, "")));
+  for (const file of files) {
+    const relative = relativePosix(projectRoot, file);
+    const extensionName = path.extname(file).toLowerCase();
+    const isStylesheet = STYLESHEET_EXTENSIONS.has(extensionName);
+    if (!isUiStyleFile(file) || matcher.isFileExempt(relative)) {
+      continue;
+    }
+    const source = await readTextIfSmall(file);
+    if (source === null) {
+      continue;
+    }
+    const text = blankComments(source, extensionName);
+    const edits = [];
+    if (isStylesheet) {
+      const definitionRanges = [];
+      for (const match of text.matchAll(VARIABLE_DEFINITION_EXPRESSION)) {
+        definitionRanges.push([match.index, match.index + match[0].length]);
+        const name = match[1];
+        const rawValue = match[3];
+        const value = rawValue.trim();
+        if (value.includes("var(")) {
+          continue;
+        }
+        const literal = normalizeLiteral(value, normalizeOptions);
+        const decision = merges.find((candidate) => fileAllowed(candidate, relative)
+          && (candidate.name ? candidate.name === name : (literal && candidate.normalized === literal.normalized)));
+        if (!decision) {
+          continue;
+        }
+        const valueStart = match.index + match[1].length + match[2].length + (rawValue.length - rawValue.trimStart().length);
+        edits.push({
+          cssVariable: decision.entry.cssVariable, end: valueStart + value.length, kind: "merge-definition", line: lineNumberAt(text, match.index),
+          name, oldValue: value, replacement: `var(--${decision.entry.cssVariable})`, start: valueStart, token: decision.token
+        });
+      }
+      const insideDefinition = (start) => definitionRanges.some(([from, to]) => start >= from && start < to);
+      const literalMatches = [
+        ...[...text.matchAll(COLOR_LITERAL_EXPRESSION)].map((match) => ({ index: match.index, raw: match[0] })),
+        ...[...text.matchAll(DIMENSION_LITERAL_EXPRESSION)].map((match) => ({ index: match.index, raw: match[1] ?? match[0] }))
+      ];
+      for (const { index: startIndex, raw } of literalMatches) {
+        if (insideDefinition(startIndex)) {
+          continue;
+        }
+        const literal = normalizeLiteral(raw, normalizeOptions);
+        if (!literal) {
+          continue;
+        }
+        const property = propertyBefore(text, startIndex);
+        const decision = merges.find((candidate) => !candidate.name && candidate.normalized === literal.normalized
+          && fileAllowed(candidate, relative) && (!candidate.property || candidate.property === (property ?? "").toLowerCase()));
+        if (!decision) {
+          continue;
+        }
+        edits.push({
+          cssVariable: decision.entry.cssVariable, end: startIndex + raw.length, kind: "merge", line: lineNumberAt(text, startIndex),
+          oldValue: raw, property, replacement: `var(--${decision.entry.cssVariable})`, start: startIndex, token: decision.token
+        });
+      }
+    } else {
+      for (const match of text.matchAll(TAILWIND_ARBITRARY_EXPRESSION)) {
+        const inner = match[2];
+        if (inner.includes("var(")) {
+          continue;
+        }
+        const literal = normalizeLiteral(inner, normalizeOptions);
+        if (!literal) {
+          continue;
+        }
+        const property = propertyForTailwindPrefix(match[1], literal.kind);
+        const decision = merges.find((candidate) => !candidate.name && candidate.normalized === literal.normalized
+          && fileAllowed(candidate, relative) && (!candidate.property || candidate.property === property));
+        if (!decision) {
+          continue;
+        }
+        edits.push({
+          cssVariable: decision.entry.cssVariable, end: match.index + match[0].length, kind: "merge-tailwind", line: lineNumberAt(text, match.index),
+          oldValue: match[0], property: match[1], replacement: `${match[1]}-[var(--${decision.entry.cssVariable})]`, start: match.index, token: decision.token
+        });
+      }
+    }
+    if (edits.length > 0) {
+      changes.push({ absolute: file, edits, file: relative });
+    }
+  }
+  return { changes, warnings };
+}
+
+async function readDecisions(projectRoot, options, byPath) {
+  const resolveFile = (value) => (path.isAbsolute(value) ? value : path.resolve(projectRoot, value));
+  let merges = [];
+  let exemptionEntries = [];
+  const issues = [];
+  if (typeof options["decisions-file"] === "string") {
+    const document = await readJson(resolveFile(options["decisions-file"]));
+    if (!isObject(document)) {
+      throw new Error("--decisions-file must contain a JSON object with optional merges and exemptions arrays");
+    }
+    merges = validateMergeDecisions(document.merges, byPath);
+    if (document.exemptions !== undefined) {
+      exemptionEntries = validateExemptionEntries(document.exemptions, issues);
+    }
+  }
+  if (typeof options["exemptions-file"] === "string") {
+    const document = await readJson(resolveFile(options["exemptions-file"]));
+    exemptionEntries = [...exemptionEntries, ...validateExemptionEntries(isObject(document) ? document.exemptions : null, issues)];
+  }
+  if (issues.length > 0) {
+    throw new Error(`exemption entries are invalid: ${issues.map((entry) => entry.message).join("; ")}`);
+  }
+  return { exemptionEntries, merges, present: typeof options["decisions-file"] === "string" || typeof options["exemptions-file"] === "string" };
+}
+
+async function writeExemptionEntries(projectRoot, incoming, existingEntries) {
   const merged = [...existingEntries];
   for (const entry of incoming) {
     const duplicate = merged.some((current) => current.path === entry.path && current.value === entry.value);
@@ -594,6 +866,9 @@ async function applyExemptionsFile(projectRoot, exemptionsFile, existingEntries)
     }
   }
   merged.sort((left, right) => `${left.path}:${left.value ?? ""}`.localeCompare(`${right.path}:${right.value ?? ""}`));
+  if (incoming.length === 0) {
+    return { added: 0, total: merged.length };
+  }
   const target = path.join(projectRoot, "design-system", "exemptions.json");
   await writeText(target, `${JSON.stringify(stableValue({
     $description: "已确认的豁免登记册：这些路径或值是有意不纳管的，audit 与 guard 会静默跳过。每条必须有理由。",
@@ -635,25 +910,43 @@ async function main() {
   const files = await collectProjectFiles(projectRoot, options);
 
   if (phase === "settle") {
-    const settle = await planSettle(projectRoot, { exemptions, files, index: managed.index, matcher, normalizeOptions });
+    const decisions = await readDecisions(projectRoot, options, managed.byPath);
+    const mergePlan = decisions.merges.length > 0
+      ? await planMerges(projectRoot, { files, matcher, merges: decisions.merges, normalizeOptions })
+      : { changes: [], warnings: [] };
     let applied = null;
+    let migrationReport = null;
     if (apply) {
-      if (typeof options["exemptions-file"] !== "string") {
-        throw new Error("settle --apply requires --exemptions-file with the user-confirmed exemption entries");
+      if (!decisions.present) {
+        throw new Error("settle --apply requires --decisions-file (merges and/or exemptions) or --exemptions-file with the user-confirmed entries");
       }
       ensureSafeToWrite(projectRoot, options);
-      const answersFile = path.isAbsolute(options["exemptions-file"])
-        ? options["exemptions-file"]
-        : path.resolve(projectRoot, options["exemptions-file"]);
-      applied = await applyExemptionsFile(projectRoot, answersFile, exemptions.entries);
+      const mergeSummary = summarizeChanges(mergePlan.changes);
+      if (mergeSummary.editCount > 0) {
+        await applyChanges(mergePlan.changes);
+        migrationReport = MIGRATION_REPORT_RELATIVE_PATH;
+      }
+      const exemptionsResult = await writeExemptionEntries(projectRoot, decisions.exemptionEntries, exemptions.entries);
+      applied = { ...exemptionsResult, exemptions: exemptionsResult, merges: mergeSummary };   // added / total 顶层保留给 0.5 的调用方
+    }
+    // Re-plan after writes so the decision list reflects what is still pending.
+    const refreshed = applied ? await loadExemptions(projectRoot) : exemptions;
+    const settle = await planSettle(projectRoot, { exemptions: refreshed, files, index: managed.index, matcher: createExemptionMatcher(refreshed.entries), normalizeOptions });
+    if (migrationReport) {
+      await writeText(
+        path.join(projectRoot, "design-system", "MIGRATION.md"),
+        renderMigrationReport({ changes: mergePlan.changes, commitMessage: `migrate(settle): apply ${applied.merges.editCount} confirmed merge decisions`, pending: settle.decisions.flatMap((group) => group.items), phase, projectRoot })
+      );
     }
     printJson({
       ...settle,
       exemptionIssues: exemptions.issues,
+      ...(decisions.merges.length > 0 ? { mergePlan: { changes: publicChanges(mergePlan.changes), summary: summarizeChanges(mergePlan.changes), warnings: mergePlan.warnings } } : {}),
+      ...(migrationReport ? { migrationReport } : {}),
       phase,
       status: settle.decisions.length > 0 ? "needs-decisions" : "settled",
       ...(applied ? { applied } : {}),
-      writes: apply
+      writes: apply && ((applied?.merges.editCount ?? 0) > 0 || (applied?.exemptions.added ?? 0) > 0)
     });
     return;
   }

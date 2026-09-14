@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0 — 2026-09-14
+
+来自 Citrine 设计系统三个实测项目（黄金后台、遗留迁移排练、轻采试点）的回填。
+
+- `migrate` 匹配字面量时先看 CSS 属性再看值：`font-size: 14px` 只在字号 / 图标尺寸 Token 里找，`padding: 14px` 只在间距里找，`color` / `background` / `border` 各找各的；Tailwind 任意值按 utility 前缀推出属性。属性能唯一定位时直接替换并标 `matchedBy: "property"`，否则待决项只列同类候选并标 `narrowedBy`。此前 `14px` 会同时给出 `text.body.size` / `icon.size.sm` / `table.cell.padding-y`，把待决清单撑大。
+- 注释里的值不再算证据：`audit`、`migrate`、`status` 扫描前把 `/* */`、`//`、`<!-- -->` 的内容抹空（保留偏移与行号），字符串与 `url(http://…)` 不受影响。此前一条注释里的 `12px` 会让 `status` 从 unified 掉回 in-progress。
+- `settle --apply` 不再只写豁免：新增 `--decisions-file`，`merges` 里点名的字面量（可限定 `property` / `files`）或旧变量定义直接改写为 `var(--…)`，生成 `MIGRATION.md`；`exemptions` 同文件登记。未知 Token 在写入前拒绝；非 Semantic 层给出警告。`--exemptions-file` 旧写法保留，输出里 `applied.added / total` 顶层字段保留。
+- 修正 `--allow-dirty` 从未生效（代码只认 `allowDirty`）。
+- `guard` 与 `status` 的输出各带 `checks` / `notCovered`，SKILL 与参考文档写明分工：guard 只看 `design-system/` 自身与 `dist`，页面字面量债与待决项看 status——`guard: current` 不代表页面没有硬编码。
+
 ## 0.5.0 — 2026-08-21
 
 - Adds a three-phase `migrate` mode for unifying legacy code onto approved tokens: `adopt` bridges legacy CSS variable definitions, `replace` rewrites matching stylesheet literals and Tailwind arbitrary values, `settle` turns leftovers into merge/promote/exempt decisions. Plans are read-only; `--apply` requires a clean git worktree and writes a `MIGRATION.md` report with per-file diffs and rollback commands.
