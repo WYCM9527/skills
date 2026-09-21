@@ -188,7 +188,8 @@ async function main() {
     .filter((color) => color.bg > 0 && pageBg && isDark(color.rgba) !== pageIsDark && color.hex !== pageBg)
     .filter((color) => familyOfHex(color.hex) === "neutral" || lightnessOf(color.hex) < 0.15)
     .sort((left, right) => right.area - left.area);
-  const textColors = opaqueColors.filter((color) => color.text > 0 && baseBg && contrast(color.hex, baseBg) >= 2.2).sort((left, right) => right.text - left.text);
+  // 文字色允许半透明（Bootstrap / Material 的次要文字是 rgba(…, .75) 这类），对比度按叠在底色上算；太透的（< 0.5）不算文字
+  const textColors = [...colors.values()].filter((color) => color.rgba.a >= 0.5 && color.text > 0 && baseBg && contrast(color.hex, baseBg) >= 2.2).sort((left, right) => right.text - left.text);
   // 只看色度：近白 / 近黑本来就是低色度；不能按明度放行，否则代码高亮的浅青、浅黄会混进文字三档
   const neutralText = textColors.filter((color) => familyOfHex(color.hex) === "neutral");
   const primaryText = neutralText[0] ?? textColors[0] ?? null;
@@ -227,7 +228,7 @@ async function main() {
   const brandButtons = chromaticButtons.filter((group) => brandFamily && familyOfHex(group.bg) === brandFamily);
   const darkNeutralButtons = [...buttonGroups.values()].filter((group) => familyOfHex(group.bg) === "neutral" && pageBg && isDark(rgbaOfHex(group.bg)) !== pageIsDark);
   const primaryGroup = (brandButtons.length ? brandButtons : chromaticButtons.length ? chromaticButtons : darkNeutralButtons).sort((left, right) => right.count - left.count)[0] ?? null;
-  const primaryVar = varColor(["--primary", "--color-primary", "--brand", "--color-brand", "--accent", "--color-accent", "--el-color-primary", "--ant-color-primary"]);
+  const primaryVar = varColor(["--primary", "--color-primary", "--brand", "--color-brand", "--accent", "--color-accent", "--el-color-primary", "--ant-color-primary", "--bs-primary", "--mantine-primary-color-filled", "--vp-c-brand-1"]);
   let primaryHex = brandOverride ? canonical(toHex({ ...brandOverride, a: 1 })) : primaryGroup?.bg ?? (primaryVar ? hexOf(primaryVar) : null);
   let primarySource = brandOverride ? "用户指定的品牌色" : primaryGroup ? `${primaryGroup.count} 个按钮的填充（如「${primaryGroup.texts.slice(0, 2).join("」「")}」）` : primaryVar ? "根变量里的主色" : null;
   if (!primaryHex && brandFamily) {
@@ -242,18 +243,18 @@ async function main() {
     ? (contrast("#ffffff", primaryHex) >= contrast(primaryText?.hex ?? "#111111", primaryHex) ? "#ffffff" : primaryText?.hex ?? "#111111")
     : null;
   const dangerGroup = [...buttonGroups.values()].filter((group) => familyOfHex(group.bg) === "red" && group.bg !== primaryHex).sort((left, right) => right.count - left.count)[0] ?? null;
-  const dangerVar = varColor(["--destructive", "--danger", "--color-danger", "--error", "--color-error", "--red", "--el-color-danger", "--ant-color-error"]);
+  const dangerVar = varColor(["--destructive", "--danger", "--color-danger", "--error", "--color-error", "--red", "--el-color-danger", "--ant-color-error", "--bs-danger", "--vp-c-danger-1"]);
   const dangerHex = dangerGroup?.bg ?? (dangerVar ? hexOf(dangerVar) : null);
   const onDangerObserved = dangerGroup ? mostCommon(dangerGroup.textColors.filter(Boolean)) : null;
 
   // 状态色：只认显式线索（徽标类名 / 根变量名 / 危险按钮）
   const statusVarNames = {
-    error: ["--error", "--color-error", "--danger", "--color-danger", "--destructive", "--red", "--el-color-danger", "--ant-color-error"],
-    info: ["--info", "--color-info", "--el-color-info", "--ant-color-info"],
-    success: ["--success", "--color-success", "--green", "--el-color-success", "--ant-color-success"],
-    warning: ["--warning", "--color-warning", "--warn", "--el-color-warning", "--ant-color-warning"]
+    error: ["--error", "--color-error", "--danger", "--color-danger", "--destructive", "--red", "--el-color-danger", "--ant-color-error", "--bs-danger", "--vp-c-danger-1"],
+    info: ["--info", "--color-info", "--el-color-info", "--ant-color-info", "--bs-info", "--vp-c-tip-1"],
+    success: ["--success", "--color-success", "--green", "--el-color-success", "--ant-color-success", "--bs-success", "--vp-c-success-1"],
+    warning: ["--warning", "--color-warning", "--warn", "--el-color-warning", "--ant-color-warning", "--bs-warning", "--vp-c-warning-1"]
   };
-  const statusBgSuffixes = ["-bg", "-light", "-soft", "-subtle", "-background", "-light-9", "-bg-container"];
+  const statusBgSuffixes = ["-bg", "-light", "-soft", "-subtle", "-background", "-light-9", "-bg-container", "-bg-subtle"];
   const statusClass = { error: /error|danger|fail|negative|destructive/i, info: /info|notice/i, success: /success|positive|\bok\b|done/i, warning: /warn|caution|pending/i };
   const statusPicks = {};
   for (const status of Object.keys(statusVarNames)) {
@@ -290,9 +291,13 @@ async function main() {
     ...focusRules.map((rule) => (rule.borderColor ? opaqueHexOf(rule.borderColor) : null))
   ].filter(Boolean));
   const inputBg = mostCommon(components.inputs.map((input) => opaqueHexOf(input.background)).filter(Boolean));
-  const placeholder = mostCommon(components.inputs.map((input) => hexOf(input.placeholder)).filter(Boolean));
-  const inputBorder = mostCommon(components.inputs.map((input) => (input.borderWidth > 0 ? opaqueHexOf(input.borderColor) : null)).filter(Boolean));
-  const borderColors = opaqueColors.filter((color) => color.border > 0).sort((left, right) => right.border - left.border);
+  // 占位符色与输入框文字色相同 = 没有单独设占位符样式（el-select 的只读输入框这类），不算证据
+  const placeholder = mostCommon(components.inputs.map((input) => (hexOf(input.placeholder) && hexOf(input.placeholder) !== hexOf(input.color) ? hexOf(input.placeholder) : null)).filter(Boolean));
+  // 输入框边线：border，或 Element / shadcn 常用的 inset 1px box-shadow
+  const insetBorderColor = (shadow) => parseBoxShadow(shadow).find((layer) => layer.inset && layer.spread >= 1 && layer.blur === 0 && layer.color)?.color ?? null;
+  const inputBorder = mostCommon(components.inputs.map((input) => (input.borderWidth > 0 ? opaqueHexOf(input.borderColor) : hexOf(insetBorderColor(input.shadow)))).filter(Boolean));
+  // 边线允许半透明（rgba(0,0,0,.08) 这类分隔线很常见），alias 指向带 alpha 的 Primitive，对比度按叠底算
+  const borderColors = [...colors.values()].filter((color) => color.border > 0 && color.rgba.a >= 0.05).sort((left, right) => right.border - left.border);
   const neutralBorders = borderColors.filter((color) => familyOfHex(color.hex) === "neutral" && color.hex !== surfaceBg && color.hex !== pageBg);
 
   // 阴影分档
@@ -895,10 +900,11 @@ async function main() {
     draft.primitive("size.sidebar", dimensionToken(Math.round(sidebar.width), "px", `${OBSERVED} 侧栏宽度`));
     draft.role("layout.sidebar.width", "dimension", "size.sidebar", { evidence: `${Math.round(sidebar.width)}px`, source: "observed" });
   }
-  const container = probes.flatMap((probe) => probe.layout?.containerMaxWidths ?? []).sort((left, right) => right.count - left.count)[0];
+  // 页面容器：≥ 720px 才算（更窄的是文字列 / 卡片），像素取整
+  const container = probes.flatMap((probe) => probe.layout?.containerMaxWidths ?? []).map((entry) => ({ ...entry, value: Math.round(Number(entry.key)) })).filter((entry) => entry.value >= 720).sort((left, right) => right.count - left.count || right.value - left.value)[0];
   if (container) {
-    draft.primitive("size.container", dimensionToken(Number(container.key), "px", `${OBSERVED} 居中容器 max-width（${container.count} 处）`));
-    draft.role("layout.container.max-width", "dimension", "size.container", { evidence: `${container.key}px`, source: "observed" });
+    draft.primitive("size.container", dimensionToken(container.value, "px", `${OBSERVED} 居中容器 max-width（${container.count} 处）`));
+    draft.role("layout.container.max-width", "dimension", "size.container", { evidence: `${container.value}px`, source: "observed" });
   }
   const breakpointValues = breakpoints.map((entry) => ({ ...entry, value: Number.parseInt(entry.key, 10) })).filter((entry) => entry.value >= 320 && entry.value <= 1920).sort((left, right) => right.count - left.count);
   const mobileBp = breakpointValues.find((entry) => entry.value <= 820);
@@ -947,7 +953,7 @@ async function main() {
         changed("color.text.inverse", altDark ? altBody : altText[0].hex, altDark ? "暗色模式下反色文字取页面底色" : "亮色模式下反色文字取正文色");
         changed("color.bg.inverse", altDark ? altText[0].hex : altBody, "反色底随模式翻转");
       }
-      const altBorder = altOpaque.filter((color) => color.border > 0 && color.hex !== altSurface && color.hex !== altBody).sort((left, right) => right.border - left.border)[0];
+      const altBorder = [...alternateColors.values()].filter((color) => color.border > 0 && color.rgba.a >= 0.05 && color.hex !== altSurface && color.hex !== altBody).sort((left, right) => right.border - left.border)[0];
       if (altBorder) {
         changed("color.border.default", altBorder.hex, `${modeLabel}模式最常见的边线`);
         changed("color.border.input", altBorder.hex, `${modeLabel}模式输入框边线借用边线色`);

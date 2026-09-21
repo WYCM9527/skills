@@ -58,6 +58,35 @@ test("色族：中性阈值随明度分段，状态浅底不算中性", () => {
   assert.equal(family("#0891b2"), "cyan");
 });
 
+test("色族：近白段用 0.010 切开真中性与 50 档淡色（真实站点标定）", () => {
+  const family = (hex) => hueFamily(rgbaToOklch(parseCssColor(hex)));
+  // Element / Tailwind 的浅灰
+  for (const hex of ["#f5f7fa", "#f4f4f5", "#ebeef5", "#e4e7ed", "#dcdfe6", "#e5eaf3", "#f1f5f9", "#e5e7eb", "#e7e5e4"]) assert.equal(family(hex), "neutral", hex);
+  // Element light-9 / Tailwind 50 档
+  assert.equal(family("#fef2f2"), "red");
+  assert.equal(family("#fef0f0"), "red");
+  assert.equal(family("#ecf5ff"), "blue");
+  assert.equal(family("#eff6ff"), "blue");
+  assert.equal(family("#f0f9eb"), "green");
+  assert.equal(family("#f0fdf4"), "green");
+  assert.ok(["orange", "yellow"].includes(family("#fdf6ec")), "warning 的淡色落在橙 / 黄边界上都算有彩色");
+  assert.equal(family("#fffbeb"), "yellow");
+});
+
+test("调色板：同族近似色合并、撞档挪到可读的半档", async () => {
+  const { Palette } = await import("../scripts/lib/palette.mjs");
+  const palette = new Palette({ brandFamily: "blue" });
+  for (const [hex, count] of [["#f5f7fa", 30], ["#f4f4f5", 3], ["#f9f9f9", 2], ["#fafafa", 1], ["#e4e7ed", 8], ["#e5eaf3", 5], ["#dcdfe6", 9], ["#409eff", 10], ["#3a8ee6", 2]]) palette.add(hex, { count });
+  palette.assignNames();
+  assert.equal(palette.pathOf("#f4f4f5"), palette.pathOf("#f5f7fa"), "肉眼不可分的相邻灰合成一个 Primitive");
+  assert.equal(palette.pathOf("#fafafa"), palette.pathOf("#f9f9f9"));
+  assert.ok(palette.entryOf("#f4f4f5").descriptions.size >= 1);
+  const steps = [...palette.entries.values()].filter((entry) => entry.family === "neutral").map((entry) => entry.step).sort((a, b) => a - b);
+  assert.ok(steps.every((step) => step % 25 === 0), `撞档只落到 25 的倍数：${steps.join(",")}`);
+  assert.equal(new Set(steps).size, steps.length, "一色一名");
+  assert.match(palette.pathOf("#409eff"), /^color\.brand\./);
+});
+
 test("明度分档按 Tailwind gray 阶梯标定", () => {
   const step = (hex) => lightnessStep(rgbaToOklch(parseCssColor(hex)).L);
   assert.equal(step("#f9fafb"), 50);

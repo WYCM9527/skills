@@ -266,7 +266,22 @@ async function main() {
       : "bridge/base.css                     # 基础桥接（纯 CSS 栈）：body / 标题 / 链接 / 表单控件 / 焦点 / 减少动态效果，只引用变量\n";
     await put("README.md", fill(await readAsset("seed/README.template.md"), { ...seedValues, BRIDGE_TREE: bridgeTree, DEFAULT_STACK: stackIds[0], STACK_LIST: stackIds.map((stackId) => `\`${stackId}\`（${identity.stacks[stackId].label}）`).join("、"), THEME_TREE: themeTree }));
     await put("CHANGELOG.md", `# Changelog\n\n版本策略：patch 只改描述与文档；minor 新增或修改 token（视觉会变、名字不变，条目里写清肉眼可见的影响）；major 才改名或删除 token。\n\n## ${version} — ${date}\n\n- 由 web-to-design-system 从 ${sources} 实测提炼的初版：primitives ${notes?.counts?.primitives ?? "?"} 个，语义角色 观察 ${notes?.counts?.observed ?? "?"} / 推断 ${notes?.counts?.inferred ?? "?"}${themes.length ? `，Theme ${themes.map((theme) => theme.id).join(" / ")}` : "，无 Theme"}${bridgeReport ? `；桥接从 ${bridgeReport.sourceId} ${bridgeReport.sourceVersion} 拷入（${bridgeReport.missing.length} 个变量待补 / 待删）` : ""}。推断项与缺口见 design-system/AUDIT.md。\n`);
-    await put("package.json", JSON.parse(fill(await readAsset("seed/package.template.json"), seedValues)));
+    const pkg = JSON.parse(fill(await readAsset("seed/package.template.json"), seedValues));
+    if (bridgeReport) {
+      // 拷了桥接：把配方组件 / 图表 / 图标配置的 exports 暴露出来（接线要点里的 @scope/id/vue/* 才能解析），peer 依赖沿用来源种子的可选声明
+      const has = (relative) => existsSync(path.join(targetRoot, relative));
+      if (has("bridge/echarts.js")) pkg.exports["./echarts"] = has("bridge/echarts.d.ts") ? { default: "./bridge/echarts.js", types: "./bridge/echarts.d.ts" } : "./bridge/echarts.js";
+      if (has("bridge/iconpark.config.ts")) pkg.exports["./iconpark.config"] = "./bridge/iconpark.config.ts";
+      if (has("bridge/vue")) pkg.exports["./vue/*"] = "./bridge/vue/*";
+      if (has("bridge/react")) pkg.exports["./react/*"] = "./bridge/react/*.tsx";
+      const sourcePkgPath = path.join(bridgeReport.source, "package.json");
+      if (existsSync(sourcePkgPath)) {
+        const sourcePkg = JSON.parse(await readFile(sourcePkgPath, "utf8"));
+        if (sourcePkg.peerDependencies) pkg.peerDependencies = sourcePkg.peerDependencies;
+        if (sourcePkg.peerDependenciesMeta) pkg.peerDependenciesMeta = sourcePkg.peerDependenciesMeta;
+      }
+    }
+    await put("package.json", pkg);
     await put(".gitignore", "node_modules/\n.DS_Store\n");
   }
 

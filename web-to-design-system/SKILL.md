@@ -2,7 +2,7 @@
 name: web-to-design-system
 description: 从任意网站（一个或多个 URL）用浏览器实测证据提炼一套按本仓库 token 规范组织的设计系统种子——DTCG 2025.10 CSS Profile 的 primitives / semantic token、与 Citrine 对齐的语义角色词表、Core + Theme delta、design-system/ 目录、DESIGN.md（只写意图）与 AUDIT.md（观察 / 推断 / 缺口 / 对比度），能过 design-system-steward validate / build / guard，可选打成带 design-system.json 的种子包供 design-system-adopter 接入。用户说「把这个网站做成设计系统 / 提炼 XX 网站的 token / 按我们的规范抓一套设计系统 / web to design system / 参考这个站起一套规范」时使用。不用于：接入已发布的设计系统（design-system-adopter）、治理项目自身规范或迁移存量（design-system-steward）、只想要一份自由格式 DESIGN.md（原 web-to-design-md）。
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Web to Design System

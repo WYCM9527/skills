@@ -7,6 +7,21 @@
 - **默认 `description` 不该是用户决策**：`scaffold-system.mjs` 不传 `--description` 时写成「<名称>：从 <URL> 实测提炼的设计系统。」，这句会落到根 README 表格「定位」列、`design-system.json`、`<id>/README.md`、`package.json`。改为从 `draft-notes.json` 拼一句能直接上表的定位（来源域名 · 主操作色与色族 · 有无另一模式 · 栈与桥接状态），并把 SKILL「6. 发布到 Design-System 仓库」里「写进仓库前问用户 `--description`」改成「Agent 按证据起草定位，给用户过目即可」。
 - **npm 发布不在 skill 里决定**：提炼出的种子继续默认不带 `publishConfig`（只走文件夹 / Release 直链渠道，adopter 接入与按 tag 升级都不依赖 registry）；何时值得上 npm 的判据记在 Design-System 仓库 GUIDE 8c 第 8 步，`release.yml` 已会自动识别 `publishConfig`。
 
+## 0.3.0 — 2026-09-22
+
+用三个真实站点做端到端验证（Element Plus 中文文档三页合并 · Bootstrap 文档 `data-bs-theme` 属性暗色 · Linear 官网暗色为默认）后修的判定与探测问题；同一站点重跑会得到不同的色档名与角色值，所以是 minor。
+
+- **中性色阈值按真实数据重标**：近白段（L ≥ 0.955）0.010、0.90～0.955 段 0.016——Element 的 `*-light-9` 状态浅底（`#fdf6ec` / `#f0f9eb` / `#ecf5ff` / `#fef0f0`）与 Tailwind 50 档不再混进 neutral，而 `#f5f7fa` / `#e5eaf3` / `#e2e8f0` 这类真浅灰仍是 neutral。
+- **调色板先合并同族近似色再命名**（OKLab ΔE < 0.012，近白 / 近黑与灰阶一起比），`#f5f7fa` 与 `#f4f4f5` 合成一个 Primitive；撞档优先落到 25 的倍数（125 / 175 / 425），不再出现 105 / 110 / 115。
+- **暗色探测方向修正**：站点首屏已是暗色时切「light」而不是再切「dark」；data 属性候选优先 `<html>` 上已有的（`data-theme="dark"`）与框架常用名，不再被 toast 库的 `data-sonner-theme` 抢走；主题选择器正则放宽到任何 `data-*theme|mode|scheme*`（`data-bs-theme`、`data-color-mode`…）。Linear 由此拿到 `themes/light` 12 条 delta、`theme-map` 默认 `dark`。
+- **根变量上限 400 → 1200**（Element + VitePress 上千个变量，`--el-color-warning-light-9` 曾被截掉），窄屏 / 手机的布局探针不再重复收集。
+- **输入框边线兼容 `inset box-shadow`**（Element / shadcn 的做法）；占位符色与文字色相同视为未设置（el-select 的只读输入框）。
+- **文字三档与边线允许半透明色**（Bootstrap 的 `rgba(33,37,41,.75)`、Linear 的 `rgba(255,255,255,.08)` 分隔线），alias 指向带 alpha 的 Primitive，对比度按叠底算。
+- **正文内链接排除导航区**（侧栏 / 目录里的 `li > a` 不再算内容链接）；页面容器只认 ≥ 720px 且取整（此前取到 541.57px 的文字列）。
+- 根变量线索补 Bootstrap（`--bs-success` / `-bg-subtle`）与 VitePress（`--vp-c-*`）的命名。
+- 拷了桥接的种子 `package.json` 补 `./vue/*`、`./react/*`、`./echarts`、`./iconpark.config` 的 exports 与来源种子的可选 peerDependencies——接线要点里的 `@scope/id/vue/KitchenSink.vue` 才能解析。
+- 测试 20 项：新增中性阈值边界、近似色合并与撞档命名两组单测；夹具证据按新探针重生成。验证结论：三站均过 steward validate / build / guard，对比度报告准确命中 Element Plus 已知的 AA 不达项（白字压 `#409EFF` 2.78:1）。
+
 ## 0.2.0 — 2026-09-21
 
 面向「提炼 → 进 Design-System 仓库 → adopter 分发给任何人 → 按 tag 升级」这条路补齐发布链。

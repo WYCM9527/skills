@@ -350,7 +350,10 @@ export function deltaE(left, right) {
  * 色相边界用 Tailwind 500 档标定：red 25 · orange 55 · yellow 93 · green 150 · teal 183 · cyan 210 · blue 262 · indigo 277 · violet 293 · purple 305 · fuchsia 322 · pink 354。
  */
 export function neutralChromaThreshold(L) {
-  if (L > 0.9) return 0.025;
+  // 实测标定：近白段真中性（slate-50/100、Element #f5f7fa）C ≤ 0.007，淡色（red-50 #fef2f2、Element light-9）≥ 0.0129；
+  // 0.90～0.955 段真中性（#e5eaf3、#e2e8f0）≤ 0.0134，淡色（#d9ecff、#fee2e2）≥ 0.031。
+  if (L >= 0.955) return 0.01;
+  if (L >= 0.9) return 0.016;
   if (L > 0.6) return 0.04;
   if (L > 0.3) return 0.05;
   return 0.065;

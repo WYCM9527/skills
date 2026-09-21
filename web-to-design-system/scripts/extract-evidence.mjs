@@ -200,7 +200,9 @@ const PROBE = String.raw`
     } else if (kind === "heading" && headings.length < 24) {
       headings.push({ tag, text: clean(el.textContent).slice(0, 80), fontSize: px(s.fontSize), fontWeight: parseInt(s.fontWeight, 10), lineHeight: px(s.lineHeight), letterSpacing: s.letterSpacing, color: s.color, fontFamily: s.fontFamily.split(",")[0].trim().replace(/^['"]|['"]$/g, ""), onBackground: effectiveBackground(el) });
     } else if (kind === "link" && own && links.length < 24) {
-      links.push({ text: clean(el.textContent).slice(0, 40), color: s.color, decoration: s.textDecorationLine, fontWeight: parseInt(s.fontWeight, 10), fontSize: px(s.fontSize), onBackground: effectiveBackground(el), inParagraph: Boolean(el.closest("p, li, td, dd")), inNav: Boolean(el.closest("nav, header, footer")) });
+      // 正文内链接：在 p / li / td / dd 里，且不在导航区（侧栏 / 目录的 li 是导航，不是内容）
+      const inNav = Boolean(el.closest("nav, header, footer, aside, [role=navigation], [class*='sidebar'], [class*='toc']"));
+      links.push({ text: clean(el.textContent).slice(0, 40), color: s.color, decoration: s.textDecorationLine, fontWeight: parseInt(s.fontWeight, 10), fontSize: px(s.fontSize), onBackground: effectiveBackground(el), inParagraph: !inNav && Boolean(el.closest("p, li, td, dd")), inNav });
     } else if (kind === "card" && cards.length < 16 && area > 12000) {
       cards.push({ background: s.backgroundColor, borderColor: s.borderTopStyle !== "none" ? s.borderTopColor : null, borderWidth: px(s.borderTopWidth), radius: s.borderTopLeftRadius, shadow: s.boxShadow, padding: [s.paddingTop, s.paddingRight, s.paddingBottom, s.paddingLeft].map(px), width: Math.round(rect.width), onBackground: effectiveBackground(el.parentElement || el), className: clean(el.className).slice(0, 80) });
     } else if (kind === "badge" && badges.length < 16) {
@@ -229,7 +231,8 @@ const PROBE = String.raw`
 
   // —— 样式表：断点 + 主题线索 + 焦点规则 ——
   const breakpoints = new Map(); const themeSelectors = new Map(); const focusRules = []; let rulesScanned = 0; let inaccessibleSheets = 0;
-  const THEME_MARK = /\.dark\b|\.light\b|\[data-theme|\[data-mode|\[data-color-mode|\[data-color-scheme|\.theme-dark|\.theme-light|\.dark-mode|\.night/;
+  // 主题选择器线索：.dark / .light 类，或任何名字里带 theme / mode / scheme 的 data 属性（data-theme、data-bs-theme、data-color-mode、data-mantine-color-scheme…）
+  const THEME_MARK = /\.dark\b|\.light\b|\[data-[a-z-]*(?:theme|mode|scheme)|\.theme-dark|\.theme-light|\.dark-mode|\.night/;
   const walkRules = (rules, media) => {
     for (const rule of rules) {
       if (rulesScanned++ > 20000) return;
@@ -252,7 +255,8 @@ const PROBE = String.raw`
   // —— 根变量 / 主题状态 / 切换控件 ——
   const rootStyle = getComputedStyle(document.documentElement);
   const rootVariables = {}; let varCount = 0;
-  for (const name of rootStyle) { if (name.startsWith("--") && varCount < 400) { const v = clean(rootStyle.getPropertyValue(name)); if (v) { rootVariables[name] = v.slice(0, 120); varCount += 1; } } }
+  // Element / VitePress / Tailwind 这类站点根上有上千个变量；状态色的 -light-9 浅底常排在后面，上限太低会截掉。布局探针不收。
+  if (MODE !== "layout") for (const name of rootStyle) { if (name.startsWith("--") && varCount < 1200) { const v = clean(rootStyle.getPropertyValue(name)); if (v) { rootVariables[name] = v.slice(0, 120); varCount += 1; } } }
   const html = document.documentElement;
   const toggles = [...document.querySelectorAll("button, a, [role=switch], [role=button], input[type=checkbox]")].filter((el) => /theme|dark|light|night|appearance|主题|暗色|夜间|深色|浅色|外观/i.test((el.getAttribute("aria-label") || "") + " " + (el.getAttribute("title") || "") + " " + clean(el.textContent).slice(0, 40) + " " + (el.className || ""))).slice(0, 6).map((el) => ({ tag: el.tagName.toLowerCase(), text: clean(el.textContent).slice(0, 40), ariaLabel: el.getAttribute("aria-label"), className: clean(el.className).slice(0, 80) }));
   const themeHints = { htmlClass: clean(html.className), htmlData: Object.fromEntries([...html.attributes].filter((a) => a.name.startsWith("data-")).map((a) => [a.name, a.value.slice(0, 40)])), bodyClass: clean(document.body.className), bodyData: Object.fromEntries([...document.body.attributes].filter((a) => a.name.startsWith("data-")).map((a) => [a.name, a.value.slice(0, 40)])), colorScheme: rootStyle.colorScheme, metaThemeColor: [...document.querySelectorAll("meta[name=theme-color]")].map((m) => m.content), selectors: top(themeSelectors, 12), toggles };
@@ -419,17 +423,32 @@ function pageScheme(probeResult) {
   return text && !isDark(text) ? "dark" : "light";
 }
 
-function detectClassToggle(themeHints) {
-  const selectors = (themeHints?.selectors ?? []).map((entry) => entry.key);
-  const attr = selectors.find((selector) => /^\[data-/.test(selector));
-  if (attr) {
-    const attribute = attr.slice(1).replace(/[=\]].*$/, "");
-    return { attribute, token: "dark" };
+/**
+ * 从样式表线索里挑出「切到 wanted（dark / light）」的办法。
+ * data 属性：优先 <html> 上已经存在的那个（data-theme="dark" 这种最强），其次是框架常用名（data-theme / data-color-mode / data-bs-theme…），
+ * 再看出现次数——否则会选到 toast 库的 data-sonner-theme 这类第三方属性。class：找 wanted 对应的类名；站点已是暗色、样式表里没有 .light 时，
+ * 切亮色 = 摘掉 dark 类（TOGGLE_CLASS 会把互斥类一起处理）。
+ */
+function detectClassToggle(themeHints, wanted) {
+  const selectors = themeHints?.selectors ?? [];
+  const htmlData = themeHints?.htmlData ?? {};
+  const attributeCandidates = selectors
+    .filter((entry) => /^\[data-/.test(entry.key))
+    .map((entry) => {
+      const attribute = entry.key.slice(1).replace(/[=\]].*$/, "");
+      const known = /^data-(theme|color-mode|color-scheme|mode|scheme|bs-theme|mantine-color-scheme|md-color-scheme)$/.test(attribute);
+      return { attribute, score: (attribute in htmlData ? 10 : 0) + (known ? 5 : 0) + Math.min(3, entry.count / 10) };
+    })
+    .sort((left, right) => right.score - left.score);
+  if (attributeCandidates[0]) {
+    return { attribute: attributeCandidates[0].attribute, token: wanted };
   }
-  const cls = selectors.find((selector) => /^\.(dark|theme-dark|dark-mode|night)$/.test(selector));
-  if (cls) {
-    return { attribute: null, token: cls.slice(1) };
-  }
+  const classNames = selectors.map((entry) => entry.key).filter((key) => key.startsWith("."));
+  const darkClass = classNames.find((key) => /^\.(dark|theme-dark|dark-mode|night)$/.test(key));
+  const lightClass = classNames.find((key) => /^\.(light|theme-light|light-mode)$/.test(key));
+  if (wanted === "dark" && darkClass) return { attribute: null, token: darkClass.slice(1) };
+  if (wanted === "light" && lightClass) return { attribute: null, token: lightClass.slice(1) };
+  if (wanted === "light" && darkClass) return { attribute: null, token: "light" }; // 加 light、摘 dark
   return null;
 }
 
@@ -493,14 +512,14 @@ async function extractOne(url) {
     ab(["set", "media", initialScheme], { allowFailure: true });
     ab(["reload"], { allowFailure: true });
     settle();
-    // 2) class / data 属性切换（有选择器证据时）
-    const toggle = detectClassToggle(full.themeHints);
+    // 2) class / data 属性切换（有选择器证据时），方向 = 另一模式
+    const toggle = detectClassToggle(full.themeHints, wanted);
     if (toggle) {
       const applied = evalJson(TOGGLE_CLASS("apply", toggle.token, toggle.attribute), { allowFailure: true });
       wait(250);
       const classProbe = probe("colors");
       const classScheme = pageScheme(classProbe);
-      entry.modes[`toggle-${toggle.token}`] = { activation: toggle.attribute ? { attribute: toggle.attribute, kind: "data-attribute" } : { kind: "class" }, applied, changed: classScheme !== initialScheme, probe: classProbe, scheme: classScheme, source: toggle.attribute ? `html[${toggle.attribute}="${toggle.token}"]` : `html.${toggle.token}` };
+      entry.modes[`toggle-${wanted}`] = { activation: toggle.attribute ? { attribute: toggle.attribute, kind: "data-attribute" } : { kind: "class" }, applied, changed: classScheme !== initialScheme, probe: classProbe, scheme: classScheme, source: toggle.attribute ? `html[${toggle.attribute}="${toggle.token}"]` : `html.${toggle.token}` };
       evalJson(TOGGLE_CLASS("revert", toggle.token, toggle.attribute), { allowFailure: true });
       wait(150);
     }

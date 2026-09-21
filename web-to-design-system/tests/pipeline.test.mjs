@@ -243,6 +243,10 @@ test("脚手架（发布模式）：<id>/seeds/<name> 布局、身份文件由�
     assert.ok(existsSync(path.join(seedDir, "bridge", "element-plus.css")) && existsSync(path.join(seedDir, "bridge", "recipes.css")));
     assert.ok(existsSync(path.join(seedDir, "templates", "entry-element-plus.css")) && existsSync(path.join(seedDir, "templates", "notes-shadcn.md")));
     assert.ok(out.bridge.missing.includes("color-bg-sidebar-selected"), "Citrine 桥接引用的侧栏选中底本系统没有 → 缺口");
+    const pkg = readJson(path.join(seedDir, "package.json"));
+    assert.equal(pkg.exports["./vue/*"], "./bridge/vue/*");
+    assert.equal(pkg.exports["./echarts"].default, "./bridge/echarts.js");
+    assert.ok(pkg.peerDependenciesMeta?.vue?.optional, "peer 依赖沿用来源种子的可选声明");
     assert.match(readFileSync(path.join(seedDir, "design-system", "AUDIT.md"), "utf8"), /## 桥接缺口[\s\S]*`--color-bg-sidebar-selected`/);
     const bridgeCheck = spawnSync("node", [path.join(SCRIPTS, "check-bridge-vars.mjs"), "--system", path.join(seedDir, "design-system"), "--bridge", path.join(seedDir, "bridge"), "--json"], { encoding: "utf8" });
     assert.equal(bridgeCheck.status, 1);

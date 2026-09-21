@@ -1,15 +1,18 @@
 // 调色板归档：把观察到的颜色按 OKLCH 分成色族（neutral / brand / red / …）与 50～950 明度档，得到 Primitive 路径。
 // 品牌族 = 在按钮填充、链接、强调边线上出现最多的有彩色族；同族撞档时向相邻半档（±50）挪，保证一色一名。
-import { hueFamily, lightnessStep, parseCssColor, rgbaToOklch, toHex } from "./color.mjs";
+import { deltaE, hueFamily, lightnessStep, parseCssColor, rgbaToOklch, toHex } from "./color.mjs";
 
 const NEAR_WHITE = 0.985;
 const NEAR_BLACK = 0.12;
+/** 同族里 OKLab ΔE 小于它的两个颜色合成一个 Primitive（#f5f7fa 与 #f4f4f5 这种肉眼不可分的相邻灰）。 */
+const MERGE_DELTA_E = 0.012;
 
 export class Palette {
   constructor({ brandFamily = null, brandHex = null } = {}) {
     this.brandFamily = brandFamily;
     this.brandHex = brandHex;
     this.entries = new Map(); // hex → { hex, rgba, oklch, family, path, count, usage, description }
+    this.aliases = new Map(); // 被合并掉的 hex → 保留的 hex
     this.pathTaken = new Set();
   }
 
@@ -52,8 +55,30 @@ export class Palette {
     return family;
   }
 
-  /** 给所有已登记颜色分配 Primitive 路径。opaque 先按族 / 明度命名，半透明按「本色档 + -aNN」或用途名命名。 */
+  /** 同族近似色合并：按出现次数从高到低，ΔE < MERGE_DELTA_E 的并入更常见的那个，描述与用途一起并过去。 */
+  mergeNearDuplicates() {
+    const opaque = [...this.entries.values()].filter((entry) => entry.rgba.a >= 1).sort((left, right) => right.count - left.count);
+    const kept = [];
+    const mergeKey = (family) => (family === "white" || family === "black" ? "neutral" : family); // 近白 / 近黑与灰阶一起比
+    for (const entry of opaque) {
+      const family = this.familyOf(entry);
+      const host = kept.find((candidate) => mergeKey(candidate.family) === mergeKey(family) && deltaE(candidate.rgba, entry.rgba) < MERGE_DELTA_E);
+      if (!host) {
+        entry.family = family;
+        kept.push(entry);
+        continue;
+      }
+      host.count += entry.count;
+      for (const usage of entry.usage) host.usage.add(usage);
+      host.descriptions.add(`合并近似色 ${entry.hex}：${[...entry.descriptions][0] ?? ""}`.trim());
+      this.aliases.set(entry.hex, host.hex);
+      this.entries.delete(entry.hex);
+    }
+  }
+
+  /** 给所有已登记颜色分配 Primitive 路径。先合并近似色，opaque 按族 / 明度命名，半透明按「本色档 + -aNN」或用途名命名。 */
   assignNames() {
+    this.mergeNearDuplicates();
     const opaque = [...this.entries.values()].filter((entry) => entry.rgba.a >= 1);
     const translucent = [...this.entries.values()].filter((entry) => entry.rgba.a < 1);
     const byFamily = new Map();
@@ -111,17 +136,16 @@ export class Palette {
     return this;
   }
 
+  /** 撞档时往相邻档挪：先整档（±50 / ±100），再半档（±25 / ±75 …），都满了才用 5 的倍数——密集灰阶也尽量得到 125 / 175 这类可读的名字。 */
   freeStep(family, nominal) {
-    const candidates = [nominal, nominal + 50, nominal - 50, nominal + 100, nominal - 100, nominal + 25, nominal - 25, nominal + 150, nominal - 150];
-    for (const candidate of candidates) {
-      if (candidate >= 25 && candidate <= 975 && !this.pathTaken.has(`color.${family}.${candidate}`)) {
-        return candidate;
-      }
+    const free = (step) => step >= 25 && step <= 975 && !this.pathTaken.has(`color.${family}.${step}`);
+    for (const delta of [0, 50, -50, 100, -100]) if (free(nominal + delta)) return nominal + delta;
+    for (let distance = 25; distance <= 950; distance += 25) {
+      if (free(nominal + distance)) return nominal + distance;
+      if (free(nominal - distance)) return nominal - distance;
     }
     let fallback = nominal;
-    while (this.pathTaken.has(`color.${family}.${fallback}`)) {
-      fallback += 5;
-    }
+    while (!free(fallback)) fallback += 5;
     return fallback;
   }
 
@@ -141,16 +165,17 @@ export class Palette {
     if (!rgba) {
       return null;
     }
-    return this.entries.get(toHex(rgba))?.path ?? null;
+    return this.entryOf(toHex(rgba))?.path ?? null;
   }
 
+  /** 被合并进别的颜色的 hex 也能查到宿主条目。 */
   entryOf(hex) {
-    return this.entries.get(hex) ?? null;
+    return this.entries.get(this.aliases.get(hex) ?? hex) ?? null;
   }
 
   /** 同族里比给定颜色更深（或更浅）的相邻档，用于推导 hover / active / subtle。找不到返回 null。 */
   neighbor(hex, direction = "darker") {
-    const entry = this.entries.get(hex);
+    const entry = this.entryOf(hex);
     if (!entry || !entry.family) {
       return null;
     }

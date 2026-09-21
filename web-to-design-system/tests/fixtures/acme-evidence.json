@@ -1,5 +1,5 @@
 {
- "extractedAt": "2026-09-21T13:01:09.832Z",
+ "extractedAt": "2026-09-21T16:41:31.787Z",
  "pages": [
   {
    "interactions": {
@@ -3617,18 +3617,7 @@
        }
       ]
      },
-     "rootVariables": {
-      "--primary-hover": "#1d4ed8",
-      "--warning-bg": "#fef3c7",
-      "--primary": "#2563eb",
-      "--chart-3": "#7c3aed",
-      "--danger": "#dc2626",
-      "--success": "#16a34a",
-      "--warning": "#d97706",
-      "--chart-2": "#0891b2",
-      "--chart-1": "#2563eb",
-      "--success-bg": "#dcfce7"
-     },
+     "rootVariables": {},
      "fontSizes": [
       {
        "key": "14",
@@ -5226,18 +5215,7 @@
        }
       ]
      },
-     "rootVariables": {
-      "--primary-hover": "#1d4ed8",
-      "--warning-bg": "#fef3c7",
-      "--primary": "#2563eb",
-      "--chart-3": "#7c3aed",
-      "--danger": "#dc2626",
-      "--success": "#16a34a",
-      "--warning": "#d97706",
-      "--chart-2": "#0891b2",
-      "--chart-1": "#2563eb",
-      "--success-bg": "#dcfce7"
-     },
+     "rootVariables": {},
      "fontSizes": [
       {
        "key": "14",
@@ -6365,7 +6343,7 @@
  ],
  "tooling": {
   "agentBrowser": "agent-browser",
-  "session": "w2ds-mub97ebs-hb8iw",
+  "session": "w2ds-mubh2sgb-ezdfx",
   "viewports": [
    {
     "height": 900,
@@ -6383,7 +6361,7 @@
     "width": 390
    }
   ],
-  "elapsedMs": 12561
+  "elapsedMs": 12759
  },
  "version": 1
 }
