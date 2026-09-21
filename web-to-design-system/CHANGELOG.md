@@ -2,6 +2,11 @@
 
 版本策略：patch 只改文档 / 描述 / 不改产物形态的修正；minor 新增脚本能力、改变起草判定或产物结构（同一网站重跑会得到不同的 token 名或值，条目里写清）；major 才改语义角色词表里已有角色的含义或删角色。版本号同时写在 `SKILL.md` frontmatter 与 `package.json`。
 
+## Unreleased（待做，2026-09-22 记录）
+
+- **默认 `description` 不该是用户决策**：`scaffold-system.mjs` 不传 `--description` 时写成「<名称>：从 <URL> 实测提炼的设计系统。」，这句会落到根 README 表格「定位」列、`design-system.json`、`<id>/README.md`、`package.json`。改为从 `draft-notes.json` 拼一句能直接上表的定位（来源域名 · 主操作色与色族 · 有无另一模式 · 栈与桥接状态），并把 SKILL「6. 发布到 Design-System 仓库」里「写进仓库前问用户 `--description`」改成「Agent 按证据起草定位，给用户过目即可」。
+- **npm 发布不在 skill 里决定**：提炼出的种子继续默认不带 `publishConfig`（只走文件夹 / Release 直链渠道，adopter 接入与按 tag 升级都不依赖 registry）；何时值得上 npm 的判据记在 Design-System 仓库 GUIDE 8c 第 8 步，`release.yml` 已会自动识别 `publishConfig`。
+
 ## 0.2.0 — 2026-09-21
 
 面向「提炼 → 进 Design-System 仓库 → adopter 分发给任何人 → 按 tag 升级」这条路补齐发布链。
