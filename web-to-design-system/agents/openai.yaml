@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web to Design System"
+  short_description: "从网站实测提炼按本仓库 token 规范组织的设计系统种子"
+  default_prompt: "用 $web-to-design-system 取证这个网站，按我们的 token 规范起草 design-system/，核对后跑 steward 三绿并给我看对比度报告。"

@@ -1,0 +1,24 @@
+{
+  "name": "{{NPM}}",
+  "version": "{{VERSION}}",
+  "description": "{{NAME}} · 从 {{SOURCES}} 实测提炼的设计系统种子：DTCG token、DESIGN 规范、基础 CSS 桥接。纯数据包：接入 / 更新由 design-system-adopter skill 驱动（识别 design-system.json）。",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "bridge",
+    "design-system",
+    "!design-system/dist",
+    "design-system.json",
+    "templates",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "exports": {
+    "./package.json": "./package.json",
+    "./design-system/*": "./design-system/*",
+    "./bridge/*": "./bridge/*"
+  }
+}

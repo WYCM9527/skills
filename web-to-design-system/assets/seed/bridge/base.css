@@ -1,0 +1,137 @@
+/* {{NAME}} · 基础桥接（纯 CSS 栈）。只引用 design-system/dist 里的变量，不写任何色值与像素；
+   与组件库无关。项目样式放在它之后，同样只引用变量。有 Element Plus / shadcn 等组件库时，桥接要按组件逐条接管——那是系统层工作，向设计系统维护者提提案。 */
+
+html {
+  color-scheme: light dark;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-body);
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line-height);
+}
+
+/* Mac 上 antialiased 会把中文削细一档；保持 auto。 */
+body,
+button,
+input,
+select,
+textarea {
+  -webkit-font-smoothing: auto;
+}
+
+/* 浏览器默认给表单控件 Arial，按钮里的数字会和正文不一样。 */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+ul,
+ol,
+figure,
+blockquote {
+  margin: 0;
+}
+
+h1 {
+  font-size: var(--text-display-size, var(--text-heading-size));
+  font-weight: var(--text-display-weight, var(--text-weight-strong));
+  line-height: var(--text-heading-line-height);
+  letter-spacing: var(--text-display-tracking, normal);
+}
+
+h2 {
+  font-size: var(--text-heading-size);
+  font-weight: var(--text-weight-strong);
+  line-height: var(--text-heading-line-height);
+}
+
+h3 {
+  font-size: var(--text-title-size);
+  font-weight: var(--text-weight-strong);
+}
+
+h4 {
+  font-size: var(--text-title-sm-size);
+  font-weight: var(--text-weight-label);
+}
+
+small,
+.help {
+  font-size: var(--text-small-size);
+  color: var(--color-text-muted);
+}
+
+a {
+  color: var(--color-text-link);
+  text-decoration: var(--text-link-decoration, underline);
+  transition: color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+a:hover {
+  color: var(--color-text-link-hover);
+}
+
+code,
+pre,
+kbd {
+  font-family: var(--font-family-code, monospace);
+}
+
+hr {
+  border: 0;
+  border-top: var(--border-width-default) solid var(--color-border-default);
+}
+
+::placeholder {
+  color: var(--color-text-placeholder);
+  opacity: 1;
+}
+
+:disabled,
+[aria-disabled="true"] {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+/* 焦点必须可见：环 + 边线两件一起，颜色与粗细都来自 token。 */
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--color-focus-ring);
+}
+
+::selection {
+  background: var(--color-bg-selected, var(--color-action-primary));
+  color: var(--color-text-selected, var(--color-text-on-primary));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}

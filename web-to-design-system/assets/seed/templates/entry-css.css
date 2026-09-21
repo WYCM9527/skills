@@ -1,0 +1,6 @@
+/* 样式入口（{{NAME}} · 纯 CSS 栈）。顺序：设计系统构建产物 → 基础桥接 → 项目补充。
+   {{DIST}} / {{BRIDGE}} 由 design-system-adopter 按来源解析（npm 安装是 <npm 包名>/bridge，文件夹快照是相对 design-systems/<id>/bridge 的路径）。
+   除本文件与 app.css 外，页面样式只引用 token 变量（--color-* / --spacing-* / --space-* / --text-* / --control-* / --radius-* / --border-* / --elevation-*），不写色值与像素字面量。 */
+@import "{{DIST}}/index.css";
+@import "{{BRIDGE}}/base.css";
+@import "./app.css";
