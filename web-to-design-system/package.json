@@ -1,6 +1,6 @@
 {
   "name": "web-to-design-system",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Agent Skill：从任意网站实测提炼按 Design-System 仓库 token 规范组织的设计系统种子（DTCG token · 与 Citrine 对齐的语义角色 · Core + Theme delta · 过 steward 三绿 · 可被 adopter 接入）",
   "license": "MIT",
   "type": "module",

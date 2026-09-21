@@ -2,7 +2,7 @@
 // → 对比度报告 → 预览板 → adopter 识别（有 adopter 时）。夹具 acme-evidence.json 是对 tests/fixtures/acme.html 的真实取证结果。
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -203,6 +203,72 @@ test("脚手架（种子模式）：身份文件、桥接、模板、README / CH
   assert.equal(readJson(path.join(seedDir, "package.json")).name, "@example/acme");
   assert.match(readFileSync(path.join(seedDir, "README.md"), "utf8"), /^# Acme 采购 种子/m);
   assert.match(readFileSync(path.join(seedDir, "CHANGELOG.md"), "utf8"), /## 0\.1\.0/);
+});
+
+test("脚手架（发布模式）：<id>/seeds/<name> 布局、身份文件由仓库远端与路径推出、系统 README、根 README 表格行、迁移对照、Citrine 桥接与缺口", { skip: canBuild ? false : "需要 steward 的 style-dictionary 才能 --build" }, () => {
+  const repo = path.join(work, "repo");
+  mkdirSync(repo, { recursive: true });
+  execFileSync("git", ["init", "-q", repo]);
+  execFileSync("git", ["-C", repo, "remote", "add", "origin", "https://github.com/WYCM9527/Design-System.git"]);
+  writeFileSync(path.join(repo, "README.md"), "# Design-System\n\n| 设计系统 | 定位 | 版本 |\n| --- | --- | --- |\n| [**Citrine · 黄晶**](citrine/) | 中后台 | 2.11.9 |\n\n## 其他\n");
+  const citrineSeed = path.join(REPO_ROOT, "..", "citrine", "seeds", "brand-yellow-e");
+  const withBridges = existsSync(path.join(citrineSeed, "bridge", "element-plus.css")) ? ["--with-citrine-bridges", citrineSeed] : [];
+  // 先在种子目录放好 style-dictionary，--build 就不用联网安装
+  const seedDir = path.join(repo, "acme", "seeds", "acme");
+  mkdirSync(path.join(seedDir, "node_modules"), { recursive: true });
+  symlinkSync(styleDictionary, path.join(seedDir, "node_modules", "style-dictionary"));
+  symlinkSync(path.join(steward.dir, "node_modules", ".bin"), path.join(seedDir, "node_modules", ".bin"));
+  const out = JSON.parse(run("scaffold-system.mjs", ["--from", draftDir, "--into-repo", repo, "--id", "acme", "--name", "Acme 采购", "--description", "采购中后台", ...withBridges, "--build", "--json"]));
+  assert.equal(out.mode, "into-repo");
+  assert.equal(out.identity.repo, "WYCM9527/Design-System");
+  assert.equal(out.identity.path, "acme/seeds/acme");
+  assert.equal(out.identity.npm, "@wycm9527/acme");
+  assert.equal(out.build.ok, true);
+  assert.ok(existsSync(path.join(seedDir, "design-system", "dist", "index.css")), "dist 随种子构建");
+  assert.ok(!existsSync(path.join(seedDir, "design-system", "dist", ".gitkeep")));
+  const identity = readJson(path.join(seedDir, "design-system.json"));
+  assert.equal(identity.upstream.tagPrefix, "acme-v");
+  assert.equal(identity.migration.roles, "migration/roles.json");
+  const roles = readJson(path.join(seedDir, "migration", "roles.json"));
+  assert.ok(roles.roles.some((entry) => entry.to === "color.text.primary" && entry.var === "--color-text-primary"));
+  assert.ok(roles.roles.some((entry) => entry.to === "radius.md"), "radius 是 Primitive 也要进对照表");
+  assert.ok(roles.roles.every((entry) => !roles.skipped.includes(entry.to)));
+  const systemReadme = readFileSync(path.join(repo, "acme", "README.md"), "utf8");
+  assert.match(systemReadme, /^版本 \*\*0\.1\.0\*\*/m);
+  const rootReadme = readFileSync(path.join(repo, "README.md"), "utf8");
+  assert.match(rootReadme, /\| \[\*\*Acme 采购\*\*\]\(acme\/\) \| 采购中后台 \| 0\.1\.0 \|/);
+  assert.match(rootReadme, /Citrine · 黄晶/, "已有行不动");
+  if (withBridges.length) {
+    assert.deepEqual(out.identity.stacks, ["css", "element-plus", "shadcn"]);
+    assert.ok(existsSync(path.join(seedDir, "bridge", "element-plus.css")) && existsSync(path.join(seedDir, "bridge", "recipes.css")));
+    assert.ok(existsSync(path.join(seedDir, "templates", "entry-element-plus.css")) && existsSync(path.join(seedDir, "templates", "notes-shadcn.md")));
+    assert.ok(out.bridge.missing.includes("color-bg-sidebar-selected"), "Citrine 桥接引用的侧栏选中底本系统没有 → 缺口");
+    assert.match(readFileSync(path.join(seedDir, "design-system", "AUDIT.md"), "utf8"), /## 桥接缺口[\s\S]*`--color-bg-sidebar-selected`/);
+    const bridgeCheck = spawnSync("node", [path.join(SCRIPTS, "check-bridge-vars.mjs"), "--system", path.join(seedDir, "design-system"), "--bridge", path.join(seedDir, "bridge"), "--json"], { encoding: "utf8" });
+    assert.equal(bridgeCheck.status, 1);
+    assert.ok(JSON.parse(bridgeCheck.stdout).missing.length === out.bridge.missing.length);
+  }
+  // 重复写入：拒绝；--tokens-only 放行且不动 README
+  assert.equal(spawnSync("node", [path.join(SCRIPTS, "scaffold-system.mjs"), "--from", draftDir, "--into-repo", repo, "--id", "acme", "--name", "x"], { encoding: "utf8" }).status, 2);
+  // --path 与实际位置不一致 → 防呆
+  const badPath = spawnSync("node", [path.join(SCRIPTS, "scaffold-system.mjs"), "--from", draftDir, "--into-repo", repo, "--id", "acme2", "--name", "x", "--path", "somewhere/else"], { encoding: "utf8" });
+  assert.equal(badPath.status, 2);
+  assert.match(badPath.stderr, /upstream\.path 必须等于/);
+
+  // 发布门禁：版本 / 路径 / 身份文件全过，卡在「待填写」「[推断]」「对比度报告」三项上
+  const gate = spawnSync("node", [path.join(SCRIPTS, "publish-check.mjs"), "--seed", seedDir, "--json"], { encoding: "utf8" });
+  assert.equal(gate.status, 1);
+  const report = JSON.parse(gate.stdout);
+  const byName = Object.fromEntries(report.results.map((entry) => [entry.name, entry]));
+  for (const name of ["upstream.path = 种子在仓库里的子路径", "upstream.repo = 仓库远端", "acme/README.md 版本行 = 版本", "仓库根 README 表格行 = 版本", "steward validate-system 通过", "steward guard = current（dist 与源一致）", "身份文件引用的文件都存在"]) {
+    assert.equal(byName[name]?.status, "pass", name);
+  }
+  assert.equal(byName["DESIGN.md 没有「待填写 / 待确认」"].status, "fail");
+  assert.equal(byName["token 描述里没有未确认的 [推断]"].status, "fail");
+  assert.equal(report.failures, 3, JSON.stringify(report.results.filter((entry) => entry.status === "fail").map((entry) => entry.name)));
+  // --allow-inferred 把推断降级为警告
+  const soft = JSON.parse(spawnSync("node", [path.join(SCRIPTS, "publish-check.mjs"), "--seed", seedDir, "--allow-inferred", "--json"], { encoding: "utf8" }).stdout);
+  assert.equal(soft.failures, 2);
 });
 
 test("design-system-adopter 能识别并接入种子", { skip: ADOPTER ? false : "附近没有 design-system-adopter（它住在 Design-System 仓库）" }, () => {

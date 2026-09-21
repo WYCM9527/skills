@@ -2,6 +2,18 @@
 
 版本策略：patch 只改文档 / 描述 / 不改产物形态的修正；minor 新增脚本能力、改变起草判定或产物结构（同一网站重跑会得到不同的 token 名或值，条目里写清）；major 才改语义角色词表里已有角色的含义或删角色。版本号同时写在 `SKILL.md` frontmatter 与 `package.json`。
 
+## 0.2.0 — 2026-09-21
+
+面向「提炼 → 进 Design-System 仓库 → adopter 分发给任何人 → 按 tag 升级」这条路补齐发布链。
+
+- **`scaffold-system.mjs --into-repo <仓库根>`**：按 Design-System 仓库约定写到 `<id>/seeds/<seed-name>/`；`upstream.repo` 从仓库 git 远端推出（与 `--repo` 不一致即报错）、`upstream.path` 等于实际子路径（与 `--path` 不一致即报错）、`tagPrefix = <id>-v`、`npm = @<owner>/<id>`；另写系统级 `<id>/README.md`（版本行 `版本 **x.y.z**`）并在仓库根 README 的「| 设计系统 | 定位 | 版本 |」表格里追加 / 更新一行。种子模式（`--seed`）在 git 仓库里时也按同样规则推 `repo / path`。
+- **`--build`**：在种子目录跑 steward `build-tokens`（没有 style-dictionary 就 `npm i --no-save` 一份），`dist/` 随种子提交——纯 CSS 渠道 `ds.mjs export` 直接读它；种子 README 模板的「dist 在目标项目里构建」措辞改正。
+- **`migration/roles.json`**：从角色词表生成旧规范 → 新 token 的角色对照（33 条，含 Primitive 的 `radius.*`），身份文件加 `migration` 字段与 `owned`；adopter「更换现有规范」的 settle 阶段能用。`hints` 只放通用词，旧系统独有的变量名 / 色值由维护者补。
+- **`--with-citrine-bridges <Citrine 种子>`**：拷入 `bridge/`（Element Plus / shadcn / recipes / ECharts / IconPark / Vue & React 配方组件）当起点，不覆盖本 skill 的 `base.css`；身份文件并入 `element-plus` / `shadcn` 两个栈（entry / extra / components / scaffold / detect 沿用，snippet / notes 换成本 skill 的通用模板）与 `export.optional`；扫出**桥接引用但本系统没定义的 CSS 变量**（排除组件库前缀与桥接内部变量）写进 AUDIT「桥接缺口」表，每行待决定「补 token / 删规则」。独立命令 `check-bridge-vars.mjs --system … --bridge …`。
+- **`publish-check.mjs --seed <种子>`**：发布前门禁——身份文件完整且引用文件都在、`package.json name = upstream.npm`、版本号六处一致（design-system.json / package.json / CHANGELOG / 种子 README / `<id>/README.md` / 根 README 表格）、`upstream.path / repo` 与真实位置与远端一致、tag 未重复、DESIGN.md 无「待填写 / 待确认」、token 无未确认 `[推断]`（`--allow-inferred` 降为警告）、AUDIT 贴了对比度报告、steward `validate-system` 通过、`dist/` 已构建且 `guard` current；对比度失败与桥接缺口未决作警告。
+- SKILL 新增「6. 发布到 Design-System 仓库」与三条硬边界（发布不绕门禁、桥接是起点不是成品、不碰第三方资产）；`lib/steward.mjs` 多一处「本 skill 的兄弟目录」候选，与 steward 并列安装时直接找到。
+- 测试 18 项：新增发布模式端到端（模拟仓库 + 远端 + 根 README 表格 → `--with-citrine-bridges --build` → 门禁三项预期不通过、`--allow-inferred` 后两项）。
+
 ## 0.1.0 — 2026-09-21
 
 由 [web-to-design-md](https://github.com/Paidax01/web-to-design-md) 魔改而来：取证方式沿用（agent-browser 在运行时读计算样式，不截图不抓源码），产物从一篇自由格式 DESIGN.md 换成按 Design-System 仓库 token 规范组织的设计系统种子。

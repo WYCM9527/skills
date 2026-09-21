@@ -1,0 +1,9 @@
+/* 样式入口（{{NAME}} · Vue 3 + Element Plus）。顺序：组件库基础样式 → 设计系统构建产物 → 桥接（组件库 / 图标）→ 配方层（页面骨架公共类）→ 项目补充。
+   {{BRIDGE}} / {{DIST}} 由 design-system-adopter 按来源解析。桥接从 Citrine 拷入、按本系统 token 重新接线，接入前先看 design-system/AUDIT.md「桥接缺口」。
+   不要再引 Element 的 dark css-vars（另一模式由 dist/themes/*.css 生效）；除本文件与 app.css 外，页面样式只引用 token 变量。 */
+@import "element-plus/dist/index.css";
+@import "{{DIST}}/index.css";
+@import "{{BRIDGE}}/element-plus.css";
+@import "{{BRIDGE}}/iconpark.css";
+@import "{{BRIDGE}}/recipes.css";
+@import "./app.css";

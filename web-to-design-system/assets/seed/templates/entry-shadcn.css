@@ -1,0 +1,7 @@
+/* 样式入口（{{NAME}} · React + Tailwind v4 + shadcn/ui）。顺序：Tailwind → 设计系统构建产物 → 桥接（契约变量 + 组件级接管）→ 配方层 → 项目补充。
+   {{BRIDGE}} / {{DIST}} 由 design-system-adopter 按来源解析。桥接从 Citrine 拷入、按本系统 token 重新接线，接入前先看 design-system/AUDIT.md「桥接缺口」。 */
+@import "tailwindcss";
+@import "{{DIST}}/index.css";
+@import "{{BRIDGE}}/shadcn.css";
+@import "{{BRIDGE}}/recipes.css";
+@import "./app.css";

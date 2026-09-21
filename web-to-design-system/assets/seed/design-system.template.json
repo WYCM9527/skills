@@ -36,6 +36,10 @@
     "optional": {},
     "usage": "<link rel=\"stylesheet\" href=\"index.css\">  <!-- token（默认模式）+ 其他模式 delta -->\n<link rel=\"stylesheet\" href=\"base.css\">   <!-- 基础桥接：body / 标题 / 链接 / 表单控件 / 焦点 / 减少动态效果 -->\n<link rel=\"stylesheet\" href=\"你的样式.css\">  <!-- 只引用 var(--color-*) / var(--spacing-*) 等变量，不写色值与像素 -->"
   },
+  "migration": {
+    "roles": "migration/roles.json",
+    "guide": "README.md#从旧规范迁移"
+  },
   "agents": "templates/AGENTS.md",
   "build": {
     "tool": "style-dictionary@5.5.2",
@@ -50,6 +54,7 @@
     "design-system/tokens/**",
     "design-system/themes/**",
     "bridge/**",
-    "templates/**"
+    "templates/**",
+    "migration/**"
   ]
 }

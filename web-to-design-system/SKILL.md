@@ -2,7 +2,7 @@
 name: web-to-design-system
 description: 从任意网站（一个或多个 URL）用浏览器实测证据提炼一套按本仓库 token 规范组织的设计系统种子——DTCG 2025.10 CSS Profile 的 primitives / semantic token、与 Citrine 对齐的语义角色词表、Core + Theme delta、design-system/ 目录、DESIGN.md（只写意图）与 AUDIT.md（观察 / 推断 / 缺口 / 对比度），能过 design-system-steward validate / build / guard，可选打成带 design-system.json 的种子包供 design-system-adopter 接入。用户说「把这个网站做成设计系统 / 提炼 XX 网站的 token / 按我们的规范抓一套设计系统 / web to design system / 参考这个站起一套规范」时使用。不用于：接入已发布的设计系统（design-system-adopter）、治理项目自身规范或迁移存量（design-system-steward）、只想要一份自由格式 DESIGN.md（原 web-to-design-md）。
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Web to Design System
@@ -79,14 +79,19 @@ node <本 skill>/scripts/draft-tokens.mjs --evidence /tmp/<id>-evidence.json --o
 ### 4. 写入
 
 ```bash
-# 项目模式
+# 项目模式：写进某个项目，之后由 steward 治理
 node <本 skill>/scripts/scaffold-system.mjs --from /tmp/<id>-draft --project <项目目录> --id <id> --name "<名称>"
-# 种子模式
+# 种子模式：独立目录，adopter 可 init
 node <本 skill>/scripts/scaffold-system.mjs --from /tmp/<id>-draft --seed <种子目录> --id <id> --name "<名称>" --repo <owner/repo> --path <子路径> --npm <@scope/id>
+# 发布模式：按 Design-System 仓库约定写到 <仓库根>/<id>/seeds/<id>/，upstream 由仓库远端与实际路径推出，并写 <id>/README.md + 根 README 表格行
+node <本 skill>/scripts/scaffold-system.mjs --from /tmp/<id>-draft --into-repo <Design-System 仓库根> --id <id> --name "<名称>" --description "<一句定位>" \
+  --with-citrine-bridges <仓库根>/citrine/seeds/brand-yellow-e --build
+#   --with-citrine-bridges：拷 Element Plus / shadcn / recipes / ECharts 桥接与配方组件当起点，并把「桥接引用但本系统缺的变量」写进 AUDIT「桥接缺口」
+#   --build：在种子目录跑 steward build-tokens，dist/ 随种子提交（纯 CSS 渠道 export 直接读它）
 #   已有 design-system/ 时：--tokens-only 只重同步 token（不动 DESIGN / AUDIT），--force 整目录重写
 ```
 
-然后**写 DESIGN.md**：把模板里每处「待填写 / 待确认」换成从证据读出来的规则——只写角色名与规则，不写数值（数值在 token）。写完 `rg "待填写|待确认" design-system/DESIGN.md` 应为 0。AUDIT.md 的推断清单与缺口清单由脚本填好，补「对比度基线」「未纳管项」「风险与待确认」三段。
+然后**写 DESIGN.md**：把模板里每处「待填写 / 待确认」换成从证据读出来的规则——只写角色名与规则，不写数值（数值在 token）。写完 `rg "待填写|待确认" design-system/DESIGN.md` 应为 0。AUDIT.md 的推断清单与缺口清单由脚本填好，补「对比度基线」「未纳管项」「风险与待确认」三段；拷了桥接的还要把「桥接缺口」每行的「待决定」改成「补 token」或「删规则」并落实。`migration/roles.json` 的 `hints` 里补上旧系统独有的变量名与色值，`noEquivalent` 按 DESIGN 填。
 
 ### 5. 三绿 + 对比度 + 预览
 
@@ -101,7 +106,19 @@ node <本 skill>/scripts/render-token-board.mjs --system <目录>/design-system 
 
 steward 位置：`node <adopter>/scripts/ds.mjs steward locate`（脚手架结束时也会打印）。对比度失败项：改值或由用户拍板登记例外（AUDIT + DESIGN「已批准的例外」，附回补路径）。预览板用 agent-browser 打开亮暗各看一眼，暗色下露出后备值的角色就是 Theme delta 的缺口。
 
-种子模式再多一步验证：`node <adopter>/scripts/ds.mjs init --system <种子目录> --stack css --project <临时项目>` 能接入、`agents --stack css` 能渲染。
+种子 / 发布模式再多一步验证：`node <adopter>/scripts/ds.mjs init --system <种子目录> --stack css --project <临时项目>` 能接入、`agents --stack css` 能渲染。
+
+### 6. 发布到 Design-System 仓库（发布模式）
+
+系统进仓库后就是「公司的一套设计系统」，任何人都能用 adopter 接入并按 tag 升级，所以有一道门禁：
+
+```bash
+node <本 skill>/scripts/publish-check.mjs --seed <仓库根>/<id>/seeds/<id>        # 全 ✔ 才能发；0.x 想带着 [推断] 先发就加 --allow-inferred
+```
+
+它查：身份文件完整、引用的文件都在；版本号在 `design-system.json` / `package.json` / CHANGELOG / 种子 README / `<id>/README.md` / 根 README 表格六处一致；`upstream.path / repo / tagPrefix` 与真实位置一致；DESIGN.md 无「待填写」；token 无未确认 `[推断]`；AUDIT 贴了对比度报告；steward `validate-system` 通过、`guard` current（dist 已构建）。通过后：提交 → 打 tag `<id>-vX.Y.Z` → 推送，仓库的 `release.yml` 会建 Release（说明取 CHANGELOG 段落，附件 = 种子 npm pack + 纯 CSS 包）。之后每次改 token：升版本、写 CHANGELOG、`--tokens-only` 重同步、`--build`、`publish-check`、再打 tag。
+
+写进仓库前问用户两件事：`--description`（根 README 表格里的一句定位，别让脚本默认的「从 URL 实测提炼」句子上表）；要不要 `--with-citrine-bridges`（没有组件库桥接的系统只能纯 CSS 接入；拷了就要在接入前处理「桥接缺口」）。
 
 ## 输出契约
 
@@ -117,7 +134,8 @@ steward 位置：`node <adopter>/scripts/ds.mjs steward locate`（脚手架结�
 ├── dist/                            # steward 构建
 ├── contrast.md                      # check-contrast 报告（可选留档）
 └── token-board.html                 # 预览板（可选留档）
-种子模式另有：design-system.json · bridge/base.css · templates/{entry-css.css,notes-css.md,AGENTS.md} · README.md · CHANGELOG.md · package.json
+种子 / 发布模式另有：design-system.json · bridge/base.css（+ 拷入的组件库桥接）· templates/{entry-*.css,notes-*.md,AGENTS.md} · migration/roles.json · README.md · CHANGELOG.md · package.json · .gitignore
+发布模式另写：<仓库根>/<id>/README.md（系统级概览，版本行 `版本 **x.y.z**`）与根 README 表格一行 `| [**<名称>**](<id>/) | <定位> | x.y.z |`
 ```
 
 目标目录里不留证据 JSON、草稿、临时 notes；它们在 `/tmp`。
@@ -132,6 +150,9 @@ steward 位置：`node <adopter>/scripts/ds.mjs steward locate`（脚手架结�
 - **DESIGN.md 不写数值**；`$description` 写证据，不写规则长文。
 - **不改生成物**：`dist/` 只由 steward 构建；校验 / 构建 / Guard / 迁移都调 steward，本 skill 不自己实现。
 - **写入前确认**：`--force` 重写已有 `design-system/`、种子模式的 `--repo / --npm` 这类会进身份文件的信息，先告诉用户再做。
+- **发布不绕门禁**：进 Design-System 仓库、打 tag 之前必须 `publish-check.mjs` 全 ✔（或用户明确接受 `--allow-inferred` 的 0.x 发布）；dist 随种子提交，不让消费者自己猜怎么构建。
+- **桥接是起点不是成品**：`--with-citrine-bridges` 拷来的是 Citrine 的实现，含它的品牌决定；「桥接缺口」没处理完、走查页没过一遍，不在 README 里宣称支持该组件库。
+- **不碰第三方资产**：只带度量值；来源站点的 logo、图标字体、商用字体文件不进种子，字体栈里的商用字体在 DESIGN 注明授权情况。
 
 ## 质量门（结束前逐项过）
 
@@ -140,7 +161,7 @@ steward 位置：`node <adopter>/scripts/ds.mjs steward locate`（脚手架结�
 - [ ] `DESIGN.md` 无「待填写 / 待确认」；每条规则引用的角色在 `semantic.tokens.json` 里存在。
 - [ ] `AUDIT.md` 的推断清单每行有确认状态；core 层缺口每行有决定。
 - [ ] 有 Theme 时：`THEME.md` 列出的「通常也随模式变化」角色逐条确认过；预览板暗色下没有露出后备值的核心角色。
-- [ ] 种子模式：adopter `init` 与 `agents` 跑通；`design-system.json` 里的 repo / npm 是用户确认的。
+- [ ] 种子 / 发布模式：adopter `init` 与 `agents` 跑通；`design-system.json` 里的 repo / npm 是用户确认的；`publish-check.mjs` 全 ✔ 后才打 tag。
 - [ ] 目标目录干净：没有证据 JSON、草稿目录、评测截图。
 - [ ] 最终回复里说明：来源页面、品牌族判定、观察 / 推断 / 缺口数、Theme 有无、对比度例外、下一步（补哪些页面的证据）。
 

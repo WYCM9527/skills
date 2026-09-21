@@ -1,0 +1,5 @@
+- **样式来源**：`globals.css` 按顺序引入 Tailwind → `design-system/dist/index.css` → 桥接 `{{BRIDGE}}/shadcn.css`（契约变量 `--primary` 等指向语义 token、`@theme inline`、按 `data-slot` 的组件级接管）→ 配方层 `{{BRIDGE}}/recipes.css` → 项目补充 `app.css`。页面里的 Tailwind 类只用主题里已经映射到 token 的颜色 / 字号 / 间距，不写任意值（`bg-[#…]`、`p-[13px]`）。
+- **桥接是从 Citrine 拷来的起点**：契约变量的映射对任何系统都成立，但组件级接管里带着 Citrine 的品牌决定（`Button variant="link"` 不用、`Badge` 默认色不用、Tabs 选中用反转块、控件三档高度 28 / 34 / 40）。第一次接入前照 `design-system/AUDIT.md`「桥接缺口」补齐缺的 token 或删掉对应规则；配方组件在 `{{IMPORT}}/react/*`（StatCard / EChart / TrendChart / TableSkeleton / ConfirmBar）。
+- **根字号保持 16px**：Tailwind 的 rem 刻度依赖它；recipes 只在 `body` 设正文字号，不动 `html`。
+- **另一模式**：按 `design-system/theme-map.json` 的激活方式切换（class 激活 = `<html class="dark">`，可用 next-themes）。
+- **验收**：改完 UI 运行 steward `guard.mjs --project $PWD`（应为 `current`）与 `status.mjs`；对比度基线用 `check-contrast.mjs --system design-system`。

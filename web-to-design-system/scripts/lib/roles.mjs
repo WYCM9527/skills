@@ -202,6 +202,74 @@ export const ROLES = [
 
 export const ROLE_BY_PATH = new Map(ROLES.map((entry) => [entry.path, entry]));
 
+/**
+ * 旧规范 → 新 token 的角色对照（design-system-adopter「更换现有规范」剧本在 settle 阶段用它起草决策文件）。
+ * 与 Citrine 的 migration/roles.json 同一形状：role / to / var / properties / hints / note。hints 是旧变量名与注释里常见的字样——
+ * 这里只放通用词，旧系统独有的色值由维护者在生成后补进去。to 必须是本系统 semantic 里真实存在的路径，生成时会过滤。
+ */
+export const MIGRATION_ROLES = [
+  { hints: ["text", "font-color", "foreground", "正文", "主文字", "#333", "#303133", "#1f2937"], note: "文字三档按角色对应，不按色值找最接近的灰。", properties: ["color"], role: "正文色", to: "color.text.primary" },
+  { hints: ["secondary", "subtitle", "次要", "#606266", "#4b5563"], note: "", properties: ["color"], role: "次要文字", to: "color.text.secondary" },
+  { hints: ["muted", "disabled-text", "placeholder-text", "弱化", "辅助", "#909399", "#999", "#9ca3af"], note: "弱化文字仍要 ≥ 4.5:1；占位符另有 color.text.placeholder。", properties: ["color"], role: "弱化文字", to: "color.text.muted" },
+  { hints: ["placeholder", "占位"], note: "", properties: ["color"], role: "占位符", to: "color.text.placeholder" },
+  { hints: ["border", "divider", "分割线", "边线", "#dcdfe6", "#e4e7ed", "#e5e7eb"], note: "输入框边线用 color.border.input。", properties: ["border-color", "border", "outline-color", "box-shadow"], role: "边线", to: "color.border.default" },
+  { hints: ["input-border", "输入框边"], note: "", properties: ["border-color", "border"], role: "输入框边线", to: "color.border.input" },
+  { hints: ["page-bg", "body-bg", "页面底", "#f5f7fa", "#f0f2f5", "#f9fafb"], note: "", properties: ["background", "background-color"], role: "页面底", to: "color.bg.page" },
+  { hints: ["section", "表头底", "分区", "muted-bg", "#f5f5f5"], note: "表头、浅分区。", properties: ["background", "background-color"], role: "分区底", to: "color.bg.subtle" },
+  { hints: ["card", "white", "surface", "#fff", "#ffffff"], note: "同一个旧白值在新系统里可能是三个语义：卡片 bg.surface、输入框 bg.input、浮层 bg.elevated。", properties: ["background", "background-color"], role: "卡片白", to: "color.bg.surface" },
+  { hints: ["input-bg", "输入框底"], note: "", properties: ["background", "background-color"], role: "输入框底", to: "color.bg.input" },
+  { hints: ["popover", "dialog-bg", "dropdown-bg", "浮层", "弹窗"], note: "", properties: ["background", "background-color"], role: "浮层底", to: "color.bg.elevated" },
+  { hints: ["hover-bg", "hover", "悬停"], note: "", properties: ["background", "background-color"], role: "悬停底", to: "color.bg.hover" },
+  { hints: ["brand", "primary", "主色", "accent"], note: "一个旧主色变量在新系统里可能是多个语义（按钮 / 指示条 / 大面积 / 图表），按用途拆，不能一对一替换。", properties: ["background", "background-color"], role: "主色 · 按钮填充", to: "color.action.primary" },
+  { hints: ["primary-hover", "主色悬停"], note: "", properties: ["background", "background-color"], role: "主色 · 按钮悬停", to: "color.action.primary-hover" },
+  { hints: ["indicator", "active-bar", "指示条", "选中条"], note: "", properties: ["background", "background-color", "border-color", "border-left", "border-bottom"], role: "主色 · 指示条", to: "color.brand.indicator" },
+  { hints: ["login", "hero", "大面积", "banner"], note: "", properties: ["background", "background-color"], role: "主色 · 大面积", to: "color.bg.brand" },
+  { hints: ["chart", "图表", "series"], note: "", properties: ["fill", "stroke", "background"], role: "主色 · 图表", to: "color.chart.1" },
+  { hints: ["on-primary", "primary-foreground", "按钮文字"], note: "", properties: ["color"], role: "主按钮文字", to: "color.text.on-primary" },
+  { hints: ["success", "成功", "#67c23a", "#52c41a", "#16a34a"], note: "状态色是文字色，配 -bg 浅底；填充只给危险按钮。", properties: ["color", "background", "background-color"], role: "成功", to: "color.status.success" },
+  { hints: ["success-bg", "success-light", "成功浅底"], note: "", properties: ["background", "background-color"], role: "成功浅底", to: "color.status.success-bg" },
+  { hints: ["warning", "warn", "警示", "#e6a23c", "#faad14", "#d97706"], note: "", properties: ["color", "background", "background-color"], role: "警示", to: "color.status.warning" },
+  { hints: ["warning-bg", "warning-light", "警示浅底"], note: "", properties: ["background", "background-color"], role: "警示浅底", to: "color.status.warning-bg" },
+  { hints: ["error", "danger-text", "错误", "#f56c6c", "#ff4d4f", "#dc2626"], note: "", properties: ["color", "background", "background-color"], role: "错误", to: "color.status.error" },
+  { hints: ["error-bg", "error-light", "错误浅底"], note: "", properties: ["background", "background-color"], role: "错误浅底", to: "color.status.error-bg" },
+  { hints: ["info", "提示", "#909399", "#1890ff"], note: "", properties: ["color", "background", "background-color"], role: "信息", to: "color.status.info" },
+  { hints: ["info-bg", "info-light"], note: "", properties: ["background", "background-color"], role: "信息浅底", to: "color.status.info-bg" },
+  { hints: ["danger", "destructive", "delete", "危险"], note: "配 color.text.on-danger；不要复用 status.error（暗色下会变浅）。", properties: ["background", "background-color"], role: "危险按钮填充", to: "color.action.danger" },
+  { hints: ["link", "a-color", "链接", "#409eff", "#1677ff"], note: "链接是否保留色相看 DESIGN；等宽数字型链接不斜体。", properties: ["color"], role: "链接", to: "color.text.link" },
+  { hints: ["focus", "ring", "焦点"], note: "", properties: ["outline-color", "box-shadow", "border-color"], role: "焦点环", to: "color.focus.ring" },
+  { hints: ["1px"], note: "", properties: ["border-width", "border"], role: "1px 边线宽", to: "border.width.default" },
+  { hints: ["4px", "6px", "8px"], note: "按容器层级取 radius.md（控件）或 radius.lg（卡片），不逐像素对应。", properties: ["border-radius"], role: "小圆角（4–8px）", to: "radius.md" },
+  { hints: ["12px", "16px"], note: "", properties: ["border-radius"], role: "大圆角（卡片）", to: "radius.lg" },
+  { hints: ["14px", "13px", "16px"], note: "尺寸按角色进阶梯；同一个 px 出现在 padding 时另按间距阶梯归。", properties: ["font-size"], role: "正文字号", to: "text.body.size" },
+  { hints: ["gap", "间距"], note: "页面级留白只用 space.inline / stack / gutter / card 四个；控件内部用 spacing.*。", properties: ["gap", "margin", "padding"], role: "块间距", to: "space.stack" },
+  { hints: ["padding", "内边距"], note: "", properties: ["padding"], role: "卡片内边距", to: "space.card" },
+  { hints: ["height", "控件高", "36px", "32px", "40px"], note: "", properties: ["height", "min-height", "line-height"], role: "控件高度", to: "control.height.md" },
+  { hints: ["shadow", "阴影", "box-shadow"], note: "阴影拆成 y / blur / color 三件：box-shadow: 0 var(--elevation-card-y) var(--elevation-card-blur) var(--elevation-card-color)。", properties: ["box-shadow"], role: "卡片阴影", to: "elevation.card.color" }
+];
+
+/** 生成 migration/roles.json：只保留 semantic 里真实存在的目标；var 名与构建产物一致。 */
+export function buildMigrationRoles(systemId, semanticPaths, toCssVariable) {
+  const has = (tokenPath) => semanticPaths.has(tokenPath);
+  const roles = MIGRATION_ROLES.filter((entry) => has(entry.to)).map((entry) => ({
+    hints: entry.hints,
+    note: entry.note,
+    properties: entry.properties,
+    role: entry.role,
+    to: entry.to,
+    var: `--${toCssVariable(entry.to)}`
+  }));
+  return {
+    description: `旧规范 → ${systemId} 的角色对照（机器可读版，由 web-to-design-system 生成）。migrate --phase settle 起草决策文件时用它：按角色映射，不按色值找最接近的灰。properties 是该角色出现的 CSS 属性上下文；hints 是旧变量名 / 注释里常见的字样——这里只有通用词，请把旧系统独有的变量名与色值补进去。noEquivalent 列旧系统里在新系统没有对应物的东西（如某种深色 hover、淡色选中底）及替代写法，由维护者按 DESIGN.md 填写。`,
+    noEquivalent: [
+      { legacy: "HTML 内联样式", note: "guard 会把内联字面量算作 Drift。", replacement: "抽成 class 再引用 token", var: null }
+    ],
+    roles,
+    skipped: MIGRATION_ROLES.filter((entry) => !has(entry.to)).map((entry) => entry.to),
+    system: systemId,
+    version: 1
+  };
+}
+
 /** 对比度基线的配对：[前景, 底色, 最低比值, 说明]。底色为 null 表示用 bg.surface。 */
 export const CONTRAST_PAIRS = [
   ["color.text.primary", "color.bg.page", 4.5, "正文 / 页面底"],
