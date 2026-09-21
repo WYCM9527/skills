@@ -39,6 +39,7 @@ export function mergeColors(probes) {
       current.bg += entry.bg ?? 0;
       current.area += entry.area ?? 0;
       current.border += entry.border ?? 0;
+      current.maxFont = Math.max(current.maxFont ?? 0, entry.maxFont ?? 0);
       current.raw.add(entry.key);
       mergeKinds(current.kinds, entry.kinds);
       byHex.set(hex, current);
@@ -60,6 +61,7 @@ export function clusterNearDuplicates(byHex, threshold = 0.012) {
       host.bg += color.bg;
       host.area += color.area;
       host.border += color.border;
+      host.maxFont = Math.max(host.maxFont ?? 0, color.maxFont ?? 0);
       host.merged = [...(host.merged ?? []), color.hex];
       for (const raw of color.raw) {
         host.raw.add(raw);

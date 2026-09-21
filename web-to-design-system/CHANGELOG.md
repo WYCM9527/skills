@@ -7,6 +7,19 @@
 - **默认 `description` 不该是用户决策**：`scaffold-system.mjs` 不传 `--description` 时写成「<名称>：从 <URL> 实测提炼的设计系统。」，这句会落到根 README 表格「定位」列、`design-system.json`、`<id>/README.md`、`package.json`。改为从 `draft-notes.json` 拼一句能直接上表的定位（来源域名 · 主操作色与色族 · 有无另一模式 · 栈与桥接状态），并把 SKILL「6. 发布到 Design-System 仓库」里「写进仓库前问用户 `--description`」改成「Agent 按证据起草定位，给用户过目即可」。
 - **npm 发布不在 skill 里决定**：提炼出的种子继续默认不带 `publishConfig`（只走文件夹 / Release 直链渠道，adopter 接入与按 tag 升级都不依赖 registry）；何时值得上 npm 的判据记在 Design-System 仓库 GUIDE 8c 第 8 步，`release.yml` 已会自动识别 `publishConfig`。
 
+## 0.4.0 — 2026-09-22
+
+用 OXYZ3（游戏化创意工作室官网，React SPA + hash 路由 + WebGL + 逐字动画，根字号 `100vw / 160`）做第四个端到端验证并写进 Design-System 仓库（`oxyz3/seeds/oxyz3`）后加的能力与修的判定；rem 站点的 token 值与名全变，所以是 minor。
+
+- **`--unit auto|px|rem`**：根字号偏离 16px 超过 2px 时，字号 / 间距 / 圆角 / 控件高 / 图标 / 阴影 / 布局尺寸换算成 rem，间距按 `spacing.<rem×100>` 命名，根字号记为 `size.root-font` = 新角色 `layout.root.font-size`（词表 160 个）；边线宽、断点保留 px；预览板按该角色渲染 rem。各页根字号不一致时警告并要求重新取证。
+- **取证每页 open 后 reload**：同源 hash 路由的 `open` 不重载文档，上一页留下的视口切换会把站点自己的 resize bug 带进来（OXYZ3 在 390 → 1440 后根字号变成 61.44px），五页里四页的尺寸证据曾因此全部失真。
+- **品牌 ≠ 主操作**：`--brand` 只定品牌族与 `color.brand.*` / `text.brand`，`color.action.primary` 仍跟按钮证据（深底站点主按钮是白的）。品牌族投票加入 h1/h2 文字色 ×4、≥ 32px 有彩色大字 ×4（探针新记 `maxFont`），装饰性小块的底色按面积降权——110 个 2px 绿点不再赢过一行橙红 hero 标题。
+- **表面与页面底同调**：`bg.surface` 候选只认对 `bg.page` ≤ 1.6:1 的中性色，深底站点的白色内容区归 `bg.inverse`；此前 surface 判成白导致正文色判成黑。
+- **字号阶梯保住大字**：比正文大的档超过 8 个时留最常用的 7 个 + 最大的（hero 15rem 不再被丢）；标题字号只认比正文大的 h1/h2（SEO 隐藏标题、逐字动画的空 h2 是 9px）。
+- **按承载字数选正文行高 / 字重 / 字体**（探针给 `lineHeights` / `weights` / `families` 记 `text`），逐字动画的单字 span 不再灌大 `line-height: 1`。
+- DESIGN 模板一句「等待确认」误触 publish-check 的「待确认」门禁，改措辞。
+- SKILL「核对」新增：SPA 路由怎么拿、逐字动画站点怎么核、批量补缺口的一次性脚本要同步 `draft-notes.json`。
+
 ## 0.3.0 — 2026-09-22
 
 用三个真实站点做端到端验证（Element Plus 中文文档三页合并 · Bootstrap 文档 `data-bs-theme` 属性暗色 · Linear 官网暗色为默认）后修的判定与探测问题；同一站点重跑会得到不同的色档名与角色值，所以是 minor。

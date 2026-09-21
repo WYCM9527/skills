@@ -165,6 +165,7 @@ export const ROLES = [
   role("layout.container.max-width", "dimension", "extended", "layout", "内容容器最大宽", "居中容器的 max-width", false),
   role("layout.breakpoint.mobile", "dimension", "core", "layout", "手机断点", "样式表 @media 里最常见的小断点", false),
   role("layout.breakpoint.narrow", "dimension", "core", "layout", "窄屏断点", "", false),
+  role("layout.root.font-size", "dimension", "extended", "layout", "html 根字号", "vw 缩放的 rem 站点才有：桌面视口下 html 的 font-size，所有 rem 尺寸的基准", false),
   role("layout.form.label-width", "dimension", "shell", "layout", "横向表单标签列宽", "", false),
   role("layout.form.max-width", "dimension", "shell", "layout", "单列表单最大宽", "", false),
   role("layout.modal.width.sm", "dimension", "shell", "layout", "确认弹窗宽", "", false),

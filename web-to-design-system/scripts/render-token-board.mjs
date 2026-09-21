@@ -125,7 +125,8 @@ async function main() {
 ${cssHref ? `<link rel="stylesheet" href="${escape(cssHref)}">` : `<style id="tokens">\n${inlineCss(system)}\n</style>`}
 <style>
   /* 预览板自身的壳层样式全部引用 token 变量，缺失的角色由后备值兜底 */
-  :root { color-scheme: light dark; }
+  /* vw 缩放的 rem 站点会带 layout.root.font-size：预览板按它渲染 rem 尺寸，否则按 16px */
+  :root { color-scheme: light dark; font-size: var(--layout-root-font-size, 16px); }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--color-bg-page, #f5f5f5); color: var(--color-text-primary, #111); font-family: var(--font-family-body, system-ui, sans-serif); font-size: var(--text-body-size, 14px); line-height: var(--text-body-line-height, 1.6); }
   header { position: sticky; top: 0; z-index: var(--layer-sticky, 2); display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px 32px; background: var(--color-bg-surface, #fff); border-bottom: var(--border-width-default, 1px) solid var(--color-border-default, #ddd); }

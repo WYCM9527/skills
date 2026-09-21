@@ -135,6 +135,7 @@ const PROBE = String.raw`
     if (own) {
       const bg = effectiveBackground(el);
       bump(colors, s.color, { text: textLen, kinds: kind, textCount: 1 });
+      { const c = colors.get(s.color); const fs = px(s.fontSize) || 0; if (c && fs > (c.maxFont || 0)) c.maxFont = fs; }
       bump(pairs, s.color + " | " + bg, { text: textLen, kinds: kind, size: px(s.fontSize) >= 18.66 || (px(s.fontSize) >= 14 && parseInt(s.fontWeight, 10) >= 700) ? "large" : "normal" });
     }
     if (!isTransparent(s.backgroundColor)) bump(colors, s.backgroundColor, { bg: 1, area, kinds: kind });
@@ -151,10 +152,10 @@ const PROBE = String.raw`
       const size = px(s.fontSize);
       const weight = parseInt(s.fontWeight, 10);
       bump(fontSizes, size, { kinds: kind, text: textLen });
-      bump(weights, weight, { kinds: kind });
-      bump(families, s.fontFamily, { kinds: kind });
+      bump(weights, weight, { kinds: kind, text: textLen });
+      bump(families, s.fontFamily, { kinds: kind, text: textLen });
       const lh = px(s.lineHeight);
-      if (lh && size) bump(lineHeights, Math.round((lh / size) * 100) / 100, { kinds: kind });
+      if (lh && size) bump(lineHeights, Math.round((lh / size) * 100) / 100, { kinds: kind, text: textLen });
       if (s.letterSpacing && s.letterSpacing !== "normal" && size) bump(letterSpacings, Math.round((px(s.letterSpacing) / size) * 1000) / 1000, { kinds: kind });
       if (s.textDecorationLine && s.textDecorationLine !== "none") bump(decorations, s.textDecorationLine, { kinds: kind });
       if (s.textTransform && s.textTransform !== "none") bump(decorations, "transform:" + s.textTransform, { kinds: kind });
@@ -489,6 +490,9 @@ async function extractOne(url) {
   ab(["set", "viewport", String(desktop.width), String(desktop.height)]);
   ab(["set", "media", "light"], { allowFailure: true });
   ab(["open", url]);
+  // 同源 hash 路由的 open 不会重载文档：上一页留下的 JS 状态（视口切换、class 切换、悬停）会带进来——
+  // 见过站点的 resize 处理在 390 → 1440 后把根字号算成 61.44px。reload 让每页从干净的文档状态起测。
+  ab(["reload"], { allowFailure: true });
   settle();
   scrollSweep();
 

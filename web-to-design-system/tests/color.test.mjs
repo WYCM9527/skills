@@ -116,3 +116,16 @@ test("阴影与缓动解析", () => {
   assert.deepEqual(parseTimingFunction("cubic-bezier(0.4, 0, 0.2, 1)"), [0.4, 0, 0.2, 1]);
   assert.equal(parseTimingFunction("steps(4)"), null);
 });
+
+test("品牌族判定：装饰性小色块不赢过 hero 大字；标题色与面积加权（OXYZ3 标定）", async () => {
+  const { detectBrandFamily } = await import("../scripts/lib/palette.mjs");
+  const colors = new Map([
+    ["#00ff00", { hex: "#00ff00", bg: 110, border: 0, text: 6, textCount: 1, area: 110 * 4, maxFont: 9 }], // 充能条上的 2px 绿点
+    ["#eb5a39", { hex: "#eb5a39", bg: 0, border: 0, text: 22, textCount: 4, area: 0, maxFont: 78.75 }], // 橙红 hero 大字（span，不是 h1）
+    ["#3b86f5", { hex: "#3b86f5", bg: 2, border: 0, text: 2, textCount: 1, area: 3000, maxFont: 12 }],
+  ]);
+  const result = detectBrandFamily({ colors, buttons: [{ background: "rgb(255, 255, 255)" }], links: [], headings: [], viewportArea: 1440 * 900 });
+  assert.equal(result.family, "red", `大字号有彩色文字是最强的品牌信号：${JSON.stringify(result.ranking)}`);
+  const withHeading = detectBrandFamily({ colors: new Map([["#00ff00", colors.get("#00ff00")]]), buttons: [], links: [], headings: [{ color: "rgb(37, 99, 235)" }, { color: "rgb(37, 99, 235)" }], viewportArea: 1440 * 900 });
+  assert.equal(withHeading.family, "blue", "h1 / h2 的文字色 ×4");
+});

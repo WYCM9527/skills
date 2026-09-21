@@ -114,6 +114,35 @@ test("起草：--brand 覆盖品牌族，--fill observed 不写推断", () => {
   assert.equal(flat(readJson(path.join(out, "tokens", "primitives.tokens.json")))["color.brand.500"].$value.hex, "#DC2626");
 });
 
+test("起草：根字号偏离 16px 时按 rem 起草并记根字号；各页根字号不一致要警告", () => {
+  const evidence = readJson(EVIDENCE);
+  const withRoot = (root) => { for (const page of evidence.pages) for (const viewport of Object.values(page.viewports)) if (viewport.layout?.body) viewport.layout.body.rootFontSize = root; return evidence; };
+  const remEvidence = path.join(work, "evidence-rem.json");
+  writeFileSync(remEvidence, JSON.stringify(withRoot(9)));
+  const out = path.join(work, "draft-rem");
+  run("draft-tokens.mjs", ["--evidence", remEvidence, "--out", out, "--id", "acme"]);
+  const primitives = flat(readJson(path.join(out, "tokens", "primitives.tokens.json")));
+  const semantic = flat(readJson(path.join(out, "tokens", "semantic.tokens.json")));
+  assert.equal(primitives["font.size.md"].$value.unit, "rem", "字号按 rem");
+  assert.ok(Object.keys(primitives).filter((key) => key.startsWith("spacing.")).every((key) => primitives[key].$value.unit === "rem"), "间距按 rem");
+  assert.deepEqual(primitives["size.root-font"].$value, { unit: "px", value: 9 });
+  assert.equal(semantic["layout.root.font-size"].$value, "{size.root-font}");
+  assert.equal(primitives["border.width.thin"]?.$value.unit ?? "px", "px", "边线宽保留 px");
+  assert.equal(primitives["size.viewport.mobile"].$value.unit, "px", "断点保留 px");
+  const notes = readJson(path.join(out, "draft-notes.json"));
+  assert.ok(notes.warnings.some((warning) => warning.includes("根字号 9px")), "摘要里有 rem 模式警告");
+  // --unit px 强制按 px
+  run("draft-tokens.mjs", ["--evidence", remEvidence, "--out", path.join(work, "draft-rem-px"), "--id", "acme", "--unit", "px"]);
+  assert.equal(flat(readJson(path.join(work, "draft-rem-px", "tokens", "primitives.tokens.json")))["font.size.md"].$value.unit, "px");
+  // 一页根字号异常（站点 resize 脚本的 bug）
+  const mixed = withRoot(16);
+  mixed.pages.push(structuredClone(mixed.pages[0])); // 夹具只有一页，复制一页再把第一页的根字号改坏
+  Object.values(mixed.pages[0].viewports)[0].layout.body.rootFontSize = 61.44;
+  writeFileSync(remEvidence, JSON.stringify(mixed));
+  run("draft-tokens.mjs", ["--evidence", remEvidence, "--out", path.join(work, "draft-mixed"), "--id", "acme"]);
+  assert.ok(readJson(path.join(work, "draft-mixed", "draft-notes.json")).warnings.some((warning) => warning.includes("各页根字号不一致")));
+});
+
 test("脚手架（项目模式）：目录、文档占位、拒绝覆盖、--tokens-only", () => {
   const out = run("scaffold-system.mjs", ["--from", draftDir, "--project", projectDir, "--id", "acme", "--name", "Acme 采购"]);
   assert.match(out, /项目模式/);

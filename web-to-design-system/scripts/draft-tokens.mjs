@@ -140,6 +140,20 @@ async function main() {
   const focusRules = probes.flatMap((probe) => probe.stylesheets?.focusRules ?? []);
   const viewportArea = (primary.viewport?.width ?? 1440) * (primary.viewport?.height ?? 900);
 
+  // 单位：根字号明显偏离 16px 的站点（vw 缩放的 rem 方案，html { font-size: 100vw / N }）按 px 起草没有意义——尺寸类 token 换算成 rem，
+  // 并把桌面视口下的根字号记成 Primitive；边线宽、断点、焦点环仍用 px。--unit px|rem|auto（默认 auto）
+  const rootFontSize = Number(primary.layout?.body?.rootFontSize) || 16;
+  const rootByPage = evidence.pages.map((page) => ({ root: Number(Object.values(page.viewports)[0]?.layout?.body?.rootFontSize) || 16, url: page.url }));
+  const rootOutliers = rootByPage.filter((page) => Math.abs(page.root - rootFontSize) / rootFontSize > 0.05);
+  const rootWarning = rootOutliers.length
+    ? `各页根字号不一致：${rootByPage.map((page) => `${page.root}px ← ${page.url}`).join("；")}——同一站点根字号应相同，多半是站点的 resize 脚本在探针切换视口后算错了；这些页的尺寸证据不可信，重新取证（extract 会在每页 open 后 reload），仍不一致就把出问题的 URL 从取证列表里去掉`
+    : null; // draft 对象在后面才创建，警告在间距段落里发出
+  const unitOption = String(options.unit ?? "auto");
+  const useRem = unitOption === "rem" || (unitOption === "auto" && Math.abs(rootFontSize - 16) > 2);
+  const toRem = (px) => Math.round((px / rootFontSize) * 1000) / 1000;
+  const dim = (px, description) => (useRem ? dimensionToken(toRem(px), "rem", `${description}（${Math.round(px * 100) / 100}px @ 根字号 ${rootFontSize}px）`) : dimensionToken(px, "px", description));
+  const fmtPx = (px) => (useRem ? `${toRem(px)}rem（${Math.round(px * 100) / 100}px）` : `${px}px`);
+
   const hexOf = (css) => {
     const rgba = parseCssColor(css);
     return rgba && rgba.a > 0 ? canonical(toHex(rgba)) : null;
@@ -173,9 +187,11 @@ async function main() {
   const largestBg = opaqueColors.filter((color) => color.bg > 0).sort((left, right) => right.area - left.area)[0];
   const pageBg = bodyBg ?? largestBg?.hex ?? null;
   const pageIsDark = pageBg ? isDark(rgbaOfHex(pageBg)) : false;
+  // 表面必须与页面底同调（对比 ≤ 1.6）：深底站点里的白色内容区不是「卡片表面」，是反色区块（bg.inverse）
   const surfaceCandidates = opaqueColors
     .filter((color) => color.bg > 0 && color.hex !== pageBg && (color.area > viewportArea * 0.01 || color.bg >= 3))
     .filter((color) => familyOfHex(color.hex) === "neutral" || lightnessOf(color.hex) > 0.95 || lightnessOf(color.hex) < 0.2)
+    .filter((color) => !pageBg || contrast(color.hex, pageBg) <= 1.6)
     .map((color) => ({ color, score: color.bg + kindScore(color.kinds, { card: 3, input: 2, nav: 1, section: 2 }) }))
     .sort((left, right) => right.score - left.score);
   const surfaceBg = surfaceCandidates[0]?.color.hex ?? pageBg;
@@ -219,7 +235,7 @@ async function main() {
     buttonGroups.set(bg, group);
   }
   const brandOverride = options.brand ? parseCssColor(String(options.brand)) : null;
-  const brandDetection = detectBrandFamily({ buttons: components.buttons, colors, links: components.links });
+  const brandDetection = detectBrandFamily({ buttons: components.buttons, colors, headings: components.headings, links: components.links, viewportArea });
   const chromaticButtons = [...buttonGroups.values()].filter((group) => familyOfHex(group.bg) !== "neutral" && group.bg !== surfaceBg && group.bg !== pageBg);
   // 品牌族要么有该族的实底按钮，要么得分够高（≥ 6）；否则只是代码高亮 / 插图里的有彩色，按色相名保留，不封为 brand
   const detectedScore = brandDetection.ranking[0]?.[1] ?? 0;
@@ -229,15 +245,12 @@ async function main() {
   const darkNeutralButtons = [...buttonGroups.values()].filter((group) => familyOfHex(group.bg) === "neutral" && pageBg && isDark(rgbaOfHex(group.bg)) !== pageIsDark);
   const primaryGroup = (brandButtons.length ? brandButtons : chromaticButtons.length ? chromaticButtons : darkNeutralButtons).sort((left, right) => right.count - left.count)[0] ?? null;
   const primaryVar = varColor(["--primary", "--color-primary", "--brand", "--color-brand", "--accent", "--color-accent", "--el-color-primary", "--ant-color-primary", "--bs-primary", "--mantine-primary-color-filled", "--vp-c-brand-1"]);
-  let primaryHex = brandOverride ? canonical(toHex({ ...brandOverride, a: 1 })) : primaryGroup?.bg ?? (primaryVar ? hexOf(primaryVar) : null);
-  let primarySource = brandOverride ? "用户指定的品牌色" : primaryGroup ? `${primaryGroup.count} 个按钮的填充（如「${primaryGroup.texts.slice(0, 2).join("」「")}」）` : primaryVar ? "根变量里的主色" : null;
-  if (!primaryHex && brandFamily) {
-    const brandColor = opaqueColors.filter((color) => familyOfHex(color.hex) === brandFamily).sort((left, right) => right.count - left.count)[0];
-    if (brandColor) {
-      primaryHex = brandColor.hex;
-      primarySource = "品牌族里最常见的颜色（页面上没有实底按钮）";
-    }
-  }
+  // 品牌色：--brand 指定 > 品牌族里的按钮填充 > 品牌族里最常见的颜色。主操作色：按钮证据 > 根变量 > 品牌色——两者常常不同（深底站点主按钮是白的）
+  const brandHex = brandOverride
+    ? canonical(toHex({ ...brandOverride, a: 1 }))
+    : brandButtons[0]?.bg ?? opaqueColors.filter((color) => brandFamily && familyOfHex(color.hex) === brandFamily).sort((left, right) => right.count - left.count)[0]?.hex ?? null;
+  let primaryHex = primaryGroup?.bg ?? (primaryVar ? hexOf(primaryVar) : null) ?? brandHex;
+  const primarySource = primaryGroup ? `${primaryGroup.count} 个按钮的填充（如「${primaryGroup.texts.slice(0, 2).join("」「")}」）` : primaryVar ? "根变量里的主色" : brandOverride ? "用户指定的品牌色（页面上没有实底按钮）" : brandHex ? "品牌族里最常见的颜色（页面上没有实底按钮）" : null;
   const onPrimaryObserved = primaryGroup && primaryGroup.bg === primaryHex ? mostCommon(primaryGroup.textColors.filter(Boolean)) : null;
   const onPrimaryFallback = primaryHex && !onPrimaryObserved
     ? (contrast("#ffffff", primaryHex) >= contrast(primaryText?.hex ?? "#111111", primaryHex) ? "#ffffff" : primaryText?.hex ?? "#111111")
@@ -419,7 +432,7 @@ async function main() {
       palette.add(color.hex, { count: color.count, description: `${OBSERVED} 大面积半透明深底（弹窗遮罩）`, usage: "overlay" });
     }
   }
-  if (brandOverride) palette.add(primaryHex, { count: 3, description: `${OBSERVED} 用户指定的品牌色` });
+  if (brandHex) palette.add(brandHex, { count: 3, description: brandOverride ? `${OBSERVED} 用户指定的品牌色` : `${OBSERVED} 品牌色` });
   if (primaryVar && primaryHex === hexOf(primaryVar)) palette.add(primaryHex, { count: 2, description: `${OBSERVED} 根变量里的主色` });
   if (onPrimaryFallback) palette.add(onPrimaryFallback, { count: 1, description: `${INFERRED} 主按钮文字候选` });
   palette.add("#ffffff", { count: 1, description: `${OBSERVED} 白` });
@@ -512,7 +525,7 @@ async function main() {
   }
 
   if (primaryHex) {
-    draft.role("color.action.primary", "color", aliasOf(primaryHex), { evidence: primarySource, source: primaryGroup || brandOverride || primaryVar ? "observed" : "inferred" });
+    draft.role("color.action.primary", "color", aliasOf(primaryHex), { evidence: primarySource, source: primaryGroup || primaryVar ? "observed" : "inferred" });
     if (onPrimaryObserved) draft.role("color.text.on-primary", "color", aliasOf(onPrimaryObserved), { evidence: `主按钮上的文字色，对比 ${contrast(onPrimaryObserved, primaryHex)}:1`, source: "observed" });
     else if (FILL_INFERRED && onPrimaryFallback) draft.role("color.text.on-primary", "color", aliasOf(onPrimaryFallback), { evidence: `按对比度选白 / 深字：${contrast(onPrimaryFallback, primaryHex)}:1`, source: "inferred" });
     if (primaryHover) draft.role("color.action.primary-hover", "color", aliasOf(primaryHover.after.background), { evidence: `悬停探针：「${primaryHover.text}」填充变化`, source: "observed" });
@@ -522,9 +535,17 @@ async function main() {
     }
     if (FILL_INFERRED) {
       draft.role("color.action.primary-active", "color", draft.target("color.action.primary-hover") ?? aliasOf(primaryHex), { evidence: "按下态先与 hover 同值", source: "inferred" });
-      draft.role("color.brand.indicator", "color", aliasOf(primaryHex), { evidence: "指示条默认用主色", source: "inferred" });
-      draft.role("color.bg.brand", "color", aliasOf(primaryHex), { evidence: "大面积品牌面默认用主色", source: "inferred" });
-      draft.role("color.text.on-brand", "color", draft.target("color.text.on-primary"), { evidence: "同主按钮文字", source: "inferred" });
+      const brandTarget = aliasOf(brandHex) ?? aliasOf(primaryHex);
+      const brandNote = brandHex && brandHex !== primaryHex ? `品牌色 ${brandHex}（与主按钮填充不同）` : "默认用主色";
+      draft.role("color.brand.indicator", "color", brandTarget, { evidence: `指示条${brandNote}`, source: brandOverride ? "observed" : "inferred" });
+      draft.role("color.bg.brand", "color", brandTarget, { evidence: `大面积品牌面${brandNote}`, source: "inferred" });
+      if (brandHex && brandHex !== primaryHex) {
+        const onBrand = contrast("#ffffff", brandHex) >= contrast(primaryText?.hex ?? "#111111", brandHex) ? white : aliasOf(primaryText?.hex);
+        draft.role("color.text.on-brand", "color", onBrand, { evidence: `按对比度选白 / 正文色：${contrast(onBrand === white ? "#ffffff" : primaryText?.hex ?? "#111111", brandHex)}:1`, source: "inferred" });
+        draft.role("color.text.brand", "color", brandTarget, { evidence: "品牌大字（≥ 20px 展示性文字）用品牌色", source: "inferred" });
+      } else {
+        draft.role("color.text.on-brand", "color", draft.target("color.text.on-primary"), { evidence: "同主按钮文字", source: "inferred" });
+      }
     }
   } else {
     draft.warn("没找到主操作色：页面上没有实底按钮、根变量里也没有 --primary 之类；用 --brand #hex 指定");
@@ -619,13 +640,20 @@ async function main() {
   }
   mergedSizes.sort((left, right) => left.value - right.value);
   const below = mergedSizes.filter((entry) => entry.value < bodySize).sort((left, right) => right.value - left.value).slice(0, 3);
-  const above = mergedSizes.filter((entry) => entry.value > bodySize).slice(0, 8);
+  // 比正文大的档最多 8 个：超出时留最常用的 7 个 + 最大的那个（hero 大字不能丢），再按值升序命名
+  const aboveAll = mergedSizes.filter((entry) => entry.value > bodySize);
+  let above = aboveAll;
+  if (aboveAll.length > 8) {
+    const keep = new Set([...aboveAll].sort((left, right) => right.count - left.count).slice(0, 7).map((entry) => entry.value));
+    keep.add(aboveAll.at(-1).value);
+    above = aboveAll.filter((entry) => keep.has(entry.value));
+  }
   const sizeName = new Map([[bodySize, "md"]]);
   below.forEach((entry, index) => sizeName.set(entry.value, ["sm", "xs", "2xs"][index]));
   above.forEach((entry, index) => sizeName.set(entry.value, ["lg", "xl", "2xl", "3xl", "4xl", "5xl", "6xl", "7xl"][index]));
   for (const [value, name] of sizeName) {
     const entry = mergedSizes.find((candidate) => candidate.value === value) ?? bodySizeEntry;
-    draft.primitive(`font.size.${name}`, dimensionToken(value, "px", `${OBSERVED} 出现 ${entry?.count ?? 0} 处${name === "md" ? "，正文字号" : ""}${headingSizes.has(value) ? "，用于标题" : ""}`));
+    draft.primitive(`font.size.${name}`, dim(value, `${OBSERVED} 出现 ${entry?.count ?? 0} 处${name === "md" ? "，正文字号" : ""}${headingSizes.has(value) ? "，用于标题" : ""}`));
   }
   const sizePath = (value) => (value !== undefined && sizeName.has(value) ? `font.size.${sizeName.get(value)}` : null);
   const nearestSize = (value) => {
@@ -634,9 +662,10 @@ async function main() {
     for (const candidate of sizeName.keys()) if (!best || Math.abs(candidate - value) < Math.abs(best - value)) best = candidate;
     return sizePath(best);
   };
-  const h1Size = mostCommon(components.headings.filter((heading) => heading.tag === "h1").map((heading) => heading.fontSize));
-  const h2Size = mostCommon(components.headings.filter((heading) => heading.tag === "h2").map((heading) => heading.fontSize));
-  draft.role("text.body.size", "dimension", "font.size.md", { evidence: `承载最多文字的字号 ${bodySize}px`, source: "observed" });
+  // 标题字号只认比正文大的 h1 / h2：SEO 用的隐藏标题、逐字动画的空 h2 常是 9px 之类的怪值
+  const h1Size = mostCommon(components.headings.filter((heading) => heading.tag === "h1" && heading.fontSize > bodySize).map((heading) => heading.fontSize));
+  const h2Size = mostCommon(components.headings.filter((heading) => heading.tag === "h2" && heading.fontSize > bodySize).map((heading) => heading.fontSize));
+  draft.role("text.body.size", "dimension", "font.size.md", { evidence: `承载最多文字的字号 ${fmtPx(bodySize)}`, source: "observed" });
   draft.role("text.body-sm.size", "dimension", sizePath(below[0]?.value) ?? "font.size.md", { evidence: below[0] ? `正文下一档 ${below[0].value}px` : "没有比正文小的字号，先同正文", source: below[0] ? "observed" : "inferred" });
   draft.role("text.small.size", "dimension", sizePath(below[1]?.value) ?? sizePath(below[0]?.value) ?? "font.size.md", { evidence: below[1] ? `${below[1].value}px` : "复用 body-sm", source: below[1] ? "observed" : "inferred" });
   draft.role("text.caption.size", "dimension", sizePath(below.at(-1)?.value) ?? "font.size.md", { evidence: below.length ? `最小字号 ${below.at(-1).value}px` : "没有小字号样本", source: below.length ? "observed" : "inferred" });
@@ -670,7 +699,8 @@ async function main() {
   // 行高 / 字距
   const lineHeights = stats.lineHeights.map((entry) => ({ ...entry, value: Number(entry.key) })).filter((entry) => entry.value >= 0.9 && entry.value <= 2.4);
   if (lineHeights.length) {
-    const byCount = [...lineHeights].sort((left, right) => right.count - left.count);
+    // 正文行高按「承载的文字量」选，不按元素个数：逐字动画的单字 span 行高 1 会灌大元素数，但字数少
+    const byCount = [...lineHeights].sort((left, right) => ((right.text ?? 0) || right.count) - ((left.text ?? 0) || left.count));
     const normal = byCount[0].value;
     const tight = Math.min(...lineHeights.map((entry) => entry.value));
     const relaxed = Math.max(...lineHeights.map((entry) => entry.value));
@@ -709,47 +739,52 @@ async function main() {
 
   const spacingEntries = stats.spacing.map((entry) => ({ ...entry, value: Number(entry.key) })).filter((entry) => entry.value > 0 && entry.value <= 160);
   const baseUnit = detectBaseUnit(spacingEntries);
-  const onGrid = spacingEntries.filter((entry) => entry.value % 2 === 0 && entry.count >= MIN_COUNT).sort((left, right) => right.count - left.count).slice(0, 18);
-  const offGrid = spacingEntries.filter((entry) => entry.value % 2 !== 0 && entry.count >= MIN_COUNT * 2);
-  const spacingKey = (value) => (value % 4 === 0 ? String(value / 4) : `${Math.floor(value / 4)}-5`);
+  // px 模式：2px 网格、按 px/4 命名（半步 -5）；rem 模式：0.01rem 网格、按 rem×100 命名（spacing.20 = 0.2rem，与「1rem = 100px 设计稿」的读法一致）
+  const onGridTest = (value) => (useRem ? Math.abs(toRem(value) * 100 - Math.round(toRem(value) * 100)) < 0.05 : value % 2 === 0);
+  const onGrid = spacingEntries.filter((entry) => onGridTest(entry.value) && entry.count >= MIN_COUNT).sort((left, right) => right.count - left.count).slice(0, 18);
+  const offGrid = spacingEntries.filter((entry) => !onGridTest(entry.value) && entry.count >= MIN_COUNT * 2);
+  const spacingKey = (value) => (useRem ? String(Math.round(toRem(value) * 100)) : value % 4 === 0 ? String(value / 4) : `${Math.floor(value / 4)}-5`);
   for (const entry of onGrid) {
     const usage = ["padding", "gap", "margin"].filter((prop) => entry[prop]).map((prop) => `${prop} ${entry[prop]}`).join("、");
-    draft.primitive(`spacing.${spacingKey(entry.value)}`, dimensionToken(entry.value, "px", `${OBSERVED} ${entry.value}px：${usage}${entry.value % 4 ? "（半步，只给控件内部）" : ""}`));
+    draft.primitive(`spacing.${spacingKey(entry.value)}`, dim(entry.value, `${OBSERVED} ${usage}${!useRem && entry.value % 4 ? "（半步，只给控件内部）" : ""}`));
   }
-  if (offGrid.length) draft.warn(`不在 2px 网格上的间距：${offGrid.map((entry) => `${entry.value}px×${entry.count}`).join("、")}——按角色收进最近的阶梯，或在 AUDIT.md 记为漂移`);
+  if (offGrid.length) draft.warn(`不在${useRem ? " 0.01rem" : " 2px"} 网格上的间距：${offGrid.map((entry) => `${fmtPx(entry.value)}×${entry.count}`).join("、")}——按角色收进最近的阶梯，或在 AUDIT.md 记为漂移`);
+  if (rootWarning) draft.warn(rootWarning);
+  if (useRem) draft.warn(`根字号 ${rootFontSize}px 而不是 16px：站点用 vw 缩放的 rem 方案，尺寸类 token 已换算成 rem（1rem = ${rootFontSize}px @ 桌面视口 ${primary.viewport?.width ?? 1440}），根字号记在 size.root-font；接入项目必须复刻 html 根字号规则，否则所有尺寸按 16px 解释会缩小 ${Math.round(rootFontSize / 16 * 10) / 10} 倍`);
   const spacingPath = (value) => (value && hasPath(draft.primitives, `spacing.${spacingKey(value)}`) ? `spacing.${spacingKey(value)}` : null);
   const gapEntries = onGrid.filter((entry) => entry.gap);
   const inlineGap = gapEntries.filter((entry) => entry.value <= 12).sort((left, right) => right.gap - left.gap)[0];
   const stackGap = gapEntries.filter((entry) => entry.value >= 12 && entry.value <= 40).sort((left, right) => right.gap - left.gap)[0];
-  if (spacingPath(inlineGap?.value)) draft.role("space.inline", "dimension", spacingPath(inlineGap.value), { evidence: `最常见的小 gap ${inlineGap.value}px（${inlineGap.gap} 处）`, source: "observed" });
-  if (spacingPath(stackGap?.value)) draft.role("space.stack", "dimension", spacingPath(stackGap.value), { evidence: `最常见的块间 gap ${stackGap.value}px（${stackGap.gap} 处）`, source: "observed" });
+  if (spacingPath(inlineGap?.value)) draft.role("space.inline", "dimension", spacingPath(inlineGap.value), { evidence: `最常见的小 gap ${fmtPx(inlineGap.value)}（${inlineGap.gap} 处）`, source: "observed" });
+  if (spacingPath(stackGap?.value)) draft.role("space.stack", "dimension", spacingPath(stackGap.value), { evidence: `最常见的块间 gap ${fmtPx(stackGap.value)}（${stackGap.gap} 处）`, source: "observed" });
   const sectionPadX = mostCommon(probes.flatMap((probe) => probe.layout?.sections ?? []).map((section) => section.paddingLeft).filter((value) => value >= 12 && value <= 96 && value % 2 === 0));
-  if (spacingPath(sectionPadX)) draft.role("space.gutter", "dimension", spacingPath(sectionPadX), { evidence: `区块左右内边距 ${sectionPadX}px`, source: "observed" });
+  if (spacingPath(sectionPadX)) draft.role("space.gutter", "dimension", spacingPath(sectionPadX), { evidence: `区块左右内边距 ${fmtPx(sectionPadX)}`, source: "observed" });
   const cardPad = mostCommon(components.cards.map((card) => card.padding?.[0]).filter((value) => value >= 8 && value <= 64 && value % 2 === 0));
-  if (spacingPath(cardPad)) draft.role("space.card", "dimension", spacingPath(cardPad), { evidence: `${components.cards.length} 个卡片样本的内边距 ${cardPad}px`, source: "observed" });
+  if (spacingPath(cardPad)) draft.role("space.card", "dimension", spacingPath(cardPad), { evidence: `${components.cards.length} 个卡片样本的内边距 ${fmtPx(cardPad)}`, source: "observed" });
   for (const [rolePath, fallback] of [["space.inline", 8], ["space.stack", 16], ["space.gutter", 24], ["space.card", 24]]) {
     if (!draft.target(rolePath) && FILL_INFERRED) {
-      const nearest = onGrid.map((entry) => entry.value).sort((left, right) => Math.abs(left - fallback) - Math.abs(right - fallback))[0];
-      if (spacingPath(nearest)) draft.role(rolePath, "dimension", spacingPath(nearest), { evidence: `没有直接证据，取阶梯里最接近 ${fallback}px 的 ${nearest}px`, source: "inferred" });
+      const target = useRem ? fallback / 16 * rootFontSize : fallback; // rem 模式：把 16px 基准的期望值按根字号比例放大
+      const nearest = onGrid.map((entry) => entry.value).sort((left, right) => Math.abs(left - target) - Math.abs(right - target))[0];
+      if (spacingPath(nearest)) draft.role(rolePath, "dimension", spacingPath(nearest), { evidence: `没有直接证据，取阶梯里最接近 ${fmtPx(target)} 的 ${fmtPx(nearest)}`, source: "inferred" });
     }
   }
-  const tdPadY = mostCommon(components.tables.filter((cell) => cell.tag === "td").map((cell) => cell.paddingY).filter((value) => value > 0 && value % 2 === 0));
-  const tdPadX = mostCommon(components.tables.filter((cell) => cell.tag === "td").map((cell) => cell.paddingX).filter((value) => value > 0 && value % 2 === 0));
+  const tdPadY = mostCommon(components.tables.filter((cell) => cell.tag === "td").map((cell) => cell.paddingY).filter((value) => value > 0 && onGridTest(value)));
+  const tdPadX = mostCommon(components.tables.filter((cell) => cell.tag === "td").map((cell) => cell.paddingX).filter((value) => value > 0 && onGridTest(value)));
   if (tdPadY) {
-    draft.primitive(`spacing.${spacingKey(tdPadY)}`, dimensionToken(tdPadY, "px", `${OBSERVED} 表格单元格纵向内边距`));
-    draft.role("table.cell.padding-y", "dimension", `spacing.${spacingKey(tdPadY)}`, { evidence: `td padding-top ${tdPadY}px`, source: "observed" });
+    draft.primitive(`spacing.${spacingKey(tdPadY)}`, dim(tdPadY, `${OBSERVED} 表格单元格纵向内边距`));
+    draft.role("table.cell.padding-y", "dimension", `spacing.${spacingKey(tdPadY)}`, { evidence: `td padding-top ${fmtPx(tdPadY)}`, source: "observed" });
   }
   if (tdPadX) {
-    draft.primitive(`spacing.${spacingKey(tdPadX)}`, dimensionToken(tdPadX, "px", `${OBSERVED} 表格单元格横向内边距`));
-    draft.role("table.cell.padding-x", "dimension", `spacing.${spacingKey(tdPadX)}`, { evidence: `td padding-left ${tdPadX}px`, source: "observed" });
+    draft.primitive(`spacing.${spacingKey(tdPadX)}`, dim(tdPadX, `${OBSERVED} 表格单元格横向内边距`));
+    draft.role("table.cell.padding-x", "dimension", `spacing.${spacingKey(tdPadX)}`, { evidence: `td padding-left ${fmtPx(tdPadX)}`, source: "observed" });
   }
 
   // 圆角：按出现的档数从小到大命名
-  const radiusList = stats.radii.filter((entry) => entry.key !== "full").map((entry) => ({ ...entry, value: Number(entry.key) })).filter((entry) => entry.value > 0 && entry.value <= 48 && entry.count >= MIN_COUNT).sort((left, right) => left.value - right.value).slice(0, 6);
+  const radiusList = stats.radii.filter((entry) => entry.key !== "full").map((entry) => ({ ...entry, value: Number(entry.key) })).filter((entry) => entry.value > 0 && entry.value <= 48 * (useRem ? rootFontSize / 16 : 1) && entry.count >= MIN_COUNT).sort((left, right) => left.value - right.value).slice(0, 6);
   const radiusNames = { 1: ["md"], 2: ["sm", "md"], 3: ["sm", "md", "lg"], 4: ["xs", "sm", "md", "lg"], 5: ["xs", "sm", "md", "lg", "xl"], 6: ["xs", "sm", "md", "lg", "xl", "2xl"] }[radiusList.length] ?? [];
   radiusList.forEach((entry, index) => {
     const kinds = Object.entries(entry.kinds ?? {}).sort((left, right) => right[1] - left[1]).slice(0, 3).map(([kind]) => kind).join(" / ");
-    draft.primitive(`radius.${radiusNames[index]}`, dimensionToken(entry.value, "px", `${OBSERVED} ${entry.count} 处（${kinds}）`));
+    draft.primitive(`radius.${radiusNames[index]}`, dim(entry.value, `${OBSERVED} ${entry.count} 处（${kinds}）`));
   });
   const fullRadius = stats.radii.find((entry) => entry.key === "full");
   if (fullRadius) draft.primitive("radius.full", dimensionToken(999, "px", `${OBSERVED} 胶囊 / 圆形，${fullRadius.count} 处`));
@@ -784,9 +819,9 @@ async function main() {
   shadowLevels.forEach((level, index) => {
     const step = index + 1;
     const { representative } = level;
-    draft.primitive(`shadow.y.${step}`, dimensionToken(representative.y, "px", `${OBSERVED} 第 ${step} 层阴影 y 偏移；原式：${level.formula.slice(0, 120)}`));
-    draft.primitive(`shadow.blur.${step}`, dimensionToken(representative.blur, "px", `${OBSERVED} 第 ${step} 层阴影模糊（${level.count} 处，${Object.keys(level.kinds ?? {}).slice(0, 3).join(" / ")}）`));
-    if (representative.spread) draft.primitive(`shadow.spread.${step}`, dimensionToken(representative.spread, "px", `${OBSERVED} 第 ${step} 层阴影扩散（写法要带第四个长度）`));
+    draft.primitive(`shadow.y.${step}`, dim(representative.y, `${OBSERVED} 第 ${step} 层阴影 y 偏移；原式：${level.formula.slice(0, 120)}`));
+    draft.primitive(`shadow.blur.${step}`, dim(representative.blur, `${OBSERVED} 第 ${step} 层阴影模糊（${level.count} 处，${Object.keys(level.kinds ?? {}).slice(0, 3).join(" / ")}）`));
+    if (representative.spread) draft.primitive(`shadow.spread.${step}`, dim(representative.spread, `${OBSERVED} 第 ${step} 层阴影扩散（写法要带第四个长度）`));
     const name = levelNames[index];
     draft.role(`elevation.${name}.y`, "dimension", `shadow.y.${step}`, { evidence: `第 ${step} 层阴影（按 y+blur 由浅到深排序）`, source: "observed" });
     draft.role(`elevation.${name}.blur`, "dimension", `shadow.blur.${step}`, { evidence: `${level.count} 处`, source: "observed" });
@@ -848,7 +883,7 @@ async function main() {
 
   // 控件高度 / 图标 / 布局
   const heightCounts = new Map();
-  for (const value of [...components.buttons.map((button) => button.height), ...components.inputs.map((input) => input.height)].filter((value) => value >= 20 && value <= 72).map((value) => Math.round(value / 2) * 2)) {
+  for (const value of [...components.buttons.map((button) => button.height), ...components.inputs.map((input) => input.height)].filter((value) => value >= 20 && value <= 72 * (useRem ? rootFontSize / 16 : 1)).map((value) => (useRem ? value : Math.round(value / 2) * 2))) {
     heightCounts.set(value, (heightCounts.get(value) ?? 0) + 1);
   }
   const heightRanked = [...heightCounts.entries()].sort((left, right) => right[1] - left[1]);
@@ -856,15 +891,15 @@ async function main() {
     const md = heightRanked[0][0];
     const smaller = heightRanked.filter(([value]) => value <= md - 4)[0]?.[0];
     const larger = heightRanked.filter(([value]) => value >= md + 4)[0]?.[0];
-    draft.primitive("size.control.md", dimensionToken(md, "px", `${OBSERVED} 按钮 / 输入框最常见高度（${heightRanked[0][1]} 个样本）`));
-    draft.role("control.height.md", "dimension", "size.control.md", { evidence: `${md}px`, source: "observed" });
+    draft.primitive("size.control.md", dim(md, `${OBSERVED} 按钮 / 输入框最常见高度（${heightRanked[0][1]} 个样本）`));
+    draft.role("control.height.md", "dimension", "size.control.md", { evidence: fmtPx(md), source: "observed" });
     if (smaller) {
-      draft.primitive("size.control.sm", dimensionToken(smaller, "px", `${OBSERVED} 小控件高`));
-      draft.role("control.height.sm", "dimension", "size.control.sm", { evidence: `${smaller}px`, source: "observed" });
+      draft.primitive("size.control.sm", dim(smaller, `${OBSERVED} 小控件高`));
+      draft.role("control.height.sm", "dimension", "size.control.sm", { evidence: fmtPx(smaller), source: "observed" });
     }
     if (larger) {
-      draft.primitive("size.control.lg", dimensionToken(larger, "px", `${OBSERVED} 大控件高`));
-      draft.role("control.height.lg", "dimension", "size.control.lg", { evidence: `${larger}px`, source: "observed" });
+      draft.primitive("size.control.lg", dim(larger, `${OBSERVED} 大控件高`));
+      draft.role("control.height.lg", "dimension", "size.control.lg", { evidence: fmtPx(larger), source: "observed" });
     }
   }
   const squareIcons = iconSizes.map((entry) => ({ ...entry, size: entry.key.split("x").map(Number) })).filter((entry) => entry.size[0] === entry.size[1] && entry.size[0] >= 10 && entry.size[0] <= 64).sort((left, right) => right.count - left.count);
@@ -876,8 +911,8 @@ async function main() {
     sorted.forEach((value, index) => {
       const name = names[Math.min(4, Math.max(0, index - mdIndex + 2))];
       if (!hasPath(draft.primitives, `size.icon.${name}`)) {
-        draft.primitive(`size.icon.${name}`, dimensionToken(value, "px", `${OBSERVED} svg 边长 ${value}px（${squareIcons.find((entry) => entry.size[0] === value)?.count ?? 0} 处）`));
-        draft.role(`icon.size.${name}`, "dimension", `size.icon.${name}`, { evidence: `${value}px`, source: "observed" });
+        draft.primitive(`size.icon.${name}`, dim(value, `${OBSERVED} svg 边长（${squareIcons.find((entry) => entry.size[0] === value)?.count ?? 0} 处）`));
+        draft.role(`icon.size.${name}`, "dimension", `size.icon.${name}`, { evidence: fmtPx(value), source: "observed" });
       }
     });
   }
@@ -892,19 +927,19 @@ async function main() {
   if (libHint) draft.primitive("icon.library", stringToken(libHint.key.slice(4), `${OBSERVED} 图标类名线索，${libHint.count} 处`));
   const header = probes.map((probe) => probe.layout?.header).find(Boolean);
   if (header?.height) {
-    draft.primitive("size.topbar", dimensionToken(Math.round(header.height), "px", `${OBSERVED} header 高度（position: ${header.position}）`));
-    draft.role("layout.topbar.height", "dimension", "size.topbar", { evidence: `${Math.round(header.height)}px`, source: "observed" });
+    draft.primitive("size.topbar", dim(Math.round(header.height), `${OBSERVED} header 高度（position: ${header.position}）`));
+    draft.role("layout.topbar.height", "dimension", "size.topbar", { evidence: fmtPx(Math.round(header.height)), source: "observed" });
   }
   const sidebar = probes.map((probe) => probe.layout?.sidebar).find(Boolean);
   if (sidebar?.width) {
-    draft.primitive("size.sidebar", dimensionToken(Math.round(sidebar.width), "px", `${OBSERVED} 侧栏宽度`));
-    draft.role("layout.sidebar.width", "dimension", "size.sidebar", { evidence: `${Math.round(sidebar.width)}px`, source: "observed" });
+    draft.primitive("size.sidebar", dim(Math.round(sidebar.width), `${OBSERVED} 侧栏宽度`));
+    draft.role("layout.sidebar.width", "dimension", "size.sidebar", { evidence: fmtPx(Math.round(sidebar.width)), source: "observed" });
   }
   // 页面容器：≥ 720px 才算（更窄的是文字列 / 卡片），像素取整
   const container = probes.flatMap((probe) => probe.layout?.containerMaxWidths ?? []).map((entry) => ({ ...entry, value: Math.round(Number(entry.key)) })).filter((entry) => entry.value >= 720).sort((left, right) => right.count - left.count || right.value - left.value)[0];
   if (container) {
-    draft.primitive("size.container", dimensionToken(container.value, "px", `${OBSERVED} 居中容器 max-width（${container.count} 处）`));
-    draft.role("layout.container.max-width", "dimension", "size.container", { evidence: `${container.value}px`, source: "observed" });
+    draft.primitive("size.container", dim(container.value, `${OBSERVED} 居中容器 max-width（${container.count} 处）`));
+    draft.role("layout.container.max-width", "dimension", "size.container", { evidence: fmtPx(container.value), source: "observed" });
   }
   const breakpointValues = breakpoints.map((entry) => ({ ...entry, value: Number.parseInt(entry.key, 10) })).filter((entry) => entry.value >= 320 && entry.value <= 1920).sort((left, right) => right.count - left.count);
   const mobileBp = breakpointValues.find((entry) => entry.value <= 820);
@@ -916,6 +951,10 @@ async function main() {
   if (narrowBp) {
     draft.primitive("size.viewport.narrow", dimensionToken(narrowBp.value, "px", `${OBSERVED} 样式表里出现 ${narrowBp.count} 次的断点`));
     draft.role("layout.breakpoint.narrow", "dimension", "size.viewport.narrow", { evidence: `${narrowBp.value}px`, source: "observed" });
+  }
+  if (useRem) {
+    draft.primitive("size.root-font", dimensionToken(rootFontSize, "px", `${OBSERVED} html 根字号 @ 桌面视口 ${primary.viewport?.width ?? 1440}px（≈ 100vw / ${Math.round((primary.viewport?.width ?? 1440) / rootFontSize * 100) / 100}）。本系统所有 rem 尺寸都以它为基准；接入项目复刻这条规则，或改成固定值并接受不再随视口缩放。`));
+    draft.role("layout.root.font-size", "dimension", "size.root-font", { evidence: `根字号 ${rootFontSize}px（vw 缩放）`, source: "observed" });
   }
 
   // -------------------------------------------------------------------------------------------------------------------
@@ -933,7 +972,7 @@ async function main() {
       const modeLabel = themeId === "dark" ? "暗色" : "亮色";
       changed("color.bg.page", altBody, `${modeLabel}模式的 body 背景`);
       const altSurface = altOpaque
-        .filter((color) => color.bg > 0 && color.hex !== altBody && (color.area > viewportArea * 0.01 || color.bg >= 3))
+        .filter((color) => color.bg > 0 && color.hex !== altBody && (color.area > viewportArea * 0.01 || color.bg >= 3) && contrast(color.hex, altBody) <= 1.6)
         .map((color) => ({ color, score: color.bg + kindScore(color.kinds, { card: 3, input: 2, nav: 1, section: 2 }) }))
         .sort((left, right) => right.score - left.score)[0]?.color.hex ?? altBody;
       changed("color.bg.surface", altSurface, `${modeLabel}模式的卡片 / 区块底`);
@@ -1023,7 +1062,7 @@ async function main() {
 - 来源：${pages.map((page) => `${page.url}${page.title ? `（${page.title}）` : ""}`).join("；")}
 - 取证时间：${evidence.extractedAt}；桌面视口 ${primary.viewport?.width}×${primary.viewport?.height}；处理节点 ${primary.nodesProcessed}/${primary.nodesTotal}
 - 首屏模式：${initialScheme}${alternate ? `；另一模式：${alternate.key}（${alternate.scheme}）` : "；未取到另一模式（站点无暗 / 亮切换，或切换靠 JS 且未识别）"}
-- 品牌族判定：${brandFamily ?? "无（单色站点）"}${brandDetection.ranking.length ? `（得分：${brandDetection.ranking.map(([family, score]) => `${family} ${score.toFixed(1)}`).join("、")}）` : ""}${brandOverride ? "，用户指定覆盖" : ""}
+- 品牌族判定：${brandFamily ?? "无（单色站点）"}${brandDetection.ranking.length ? `（得分：${brandDetection.ranking.map(([family, score]) => `${family} ${score.toFixed(1)}`).join("、")}）` : ""}${brandOverride ? "，用户指定覆盖" : ""}${brandHex ? `；品牌色 \`${brandHex}\`` : ""}${primaryHex && brandHex && primaryHex !== brandHex ? `，主按钮填充 \`${primaryHex}\`（两者不同）` : ""}
 - 角色覆盖：观察 ${observedCount} · 推断 ${inferredCount} · 缺口 ${draft.notes.missing.length}（其中 core 层 ${coreMissing.length}）
 
 ## 颜色（按出现次数）
@@ -1048,7 +1087,7 @@ ${gradients.length ? `\n渐变（未收进 token，DTCG gradient 不在 CSS Prof
 ## 排版
 
 - 字体栈：${bodyStack.slice(0, 4).join(", ") || "—"}${monoStack ? `；等宽：${monoStack.slice(0, 2).join(", ")}` : ""}${headingFamily && bodyStack[0] && headingFamily.toLowerCase() !== bodyStack[0].toLowerCase() ? `；标题：${headingFamily}` : ""}
-- 字号：${listStat(stats.fontSizes.map((entry) => ({ ...entry, key: `${entry.key}px` })))}；正文 = **${bodySize}px**
+- 字号：${listStat(stats.fontSizes.map((entry) => ({ ...entry, key: fmtPx(Number(entry.key)) })))}；正文 = **${fmtPx(bodySize)}**${useRem ? `；根字号 ${rootFontSize}px（rem 模式）` : ''}
 - 字重：${listStat(stats.weights)}
 - 行高：${listStat(stats.lineHeights)}
 - 字距（em）：${listStat(stats.letterSpacings)}
@@ -1057,7 +1096,7 @@ ${gradients.length ? `\n渐变（未收进 token，DTCG gradient 不在 CSS Prof
 
 ## 尺寸与形状
 
-- 间距（px）：${listStat(stats.spacing)}；基础网格判定 ${baseUnit}px
+- 间距：${listStat(stats.spacing.map((entry) => ({ ...entry, key: fmtPx(Number(entry.key)) })))}；${useRem ? '按 rem 归档（0.01rem 网格）' : `基础网格判定 ${baseUnit}px`}
 - 圆角：${listStat(stats.radii)}
 - 线宽：${listStat(stats.borderWidths)}
 - 阴影：${distinctShadows.map((level) => `\`${level.formula.slice(0, 90)}\`（${level.count}）`).join("；") || "—"}

@@ -201,12 +201,15 @@ export class Palette {
   }
 }
 
-/** 品牌族判定：按钮填充 ×4、链接色 ×2、边线 ×1、有彩色背景面积权重；neutral 不参与。 */
-export function detectBrandFamily({ colors, buttons = [], links = [] }) {
+/**
+ * 品牌族判定：按钮填充 ×4、标题（h1/h2）文字色 ×4（上限 8）、链接 ×2、边线 ×1、有彩色底按面积加权——
+ * 110 个 2px 的绿色小方块不该赢过一行橙红的 hero 标题，所以底色出现次数要乘面积占比；neutral 不参与。
+ */
+export function detectBrandFamily({ colors, buttons = [], links = [], headings = [], viewportArea = 1440 * 900 }) {
   const score = new Map();
   const bump = (cssColor, weight) => {
     const rgba = parseCssColor(cssColor);
-    if (!rgba || rgba.a < 0.5) {
+    if (!rgba || rgba.a < 0.5 || weight <= 0) {
       return;
     }
     const oklch = rgbaToOklch(rgba);
@@ -219,11 +222,20 @@ export function detectBrandFamily({ colors, buttons = [], links = [] }) {
   for (const button of buttons) {
     bump(button.background, 4);
   }
+  let headingWeight = 0;
+  for (const heading of headings) {
+    if (headingWeight >= 8) break;
+    bump(heading.color, 4);
+    headingWeight += 4;
+  }
   for (const link of links) {
     bump(link.color, 2);
   }
   for (const color of colors.values()) {
-    bump(color.hex, Math.min(3, color.border) + Math.min(3, color.bg) * 0.5 + Math.min(2, color.textCount) * 0.5);
+    const areaFactor = color.area >= viewportArea * 0.002 ? 1 : 0.2; // 装饰性小块（进度点、粒子）不算面积证据
+    const largeText = color.text >= 20 ? 1 : 0;
+    const displayText = (color.maxFont ?? 0) >= 32 && color.textCount >= 2 ? 4 : 0; // 大字号的有彩色文字（hero 标题）是最强的品牌信号
+    bump(color.hex, Math.min(3, color.border) + Math.min(3, color.bg) * 0.5 * areaFactor + Math.min(2, color.textCount) * 0.5 + largeText + displayText);
   }
   const ranked = [...score.entries()].sort((left, right) => right[1] - left[1]);
   return ranked[0] ? { family: ranked[0][0], ranking: ranked } : { family: null, ranking: [] };

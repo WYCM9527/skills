@@ -15,6 +15,9 @@
 
 ### Semantic 角色（按证据强弱排序）
 
+- **表面必须与页面底同调**：`color.bg.surface` 候选只认与 `bg.page` 对比 ≤ 1.6 的中性色；深底站点里的白色内容区（对黑底 21:1）不是卡片表面，归 `color.bg.inverse` + `color.text.inverse`。文字三档以 surface 为底算对比，所以这条判错会连带把正文色判反。
+- **品牌色 ≠ 主操作色**：品牌族由按钮填充 ×4、h1/h2 文字色 ×4、链接 ×2、边线、按面积加权的底色、≥ 32px 的有彩色大字 ×4 投票；`--brand` 覆盖时只改品牌族与品牌角色，`color.action.primary` 仍取按钮证据（深底站点主按钮常是白 / 反白）。装饰性小块（进度点、粒子：单块面积 < 视口 0.2%）的底色权重乘 0.2。
+
 | 角色 | 观察规则 | 没证据时 |
 | --- | --- | --- |
 | `bg.page` | body / html 背景；都透明则取面积最大的底 | 报警 |
@@ -52,6 +55,8 @@
 - `text-transform: uppercase` 只记警告：中文系统通常不套用。
 
 ## 尺寸与形状
+
+- **单位（`--unit auto|px|rem`）**：根字号 = 16px（±2）的站点按 px；根字号被 JS / CSS 设成 `100vw / N` 的站点（OXYZ3：1440 宽下 9px、390 宽下 2.4375px）所有 px 都是「根字号 × rem」的乘积，auto 会把字号 / 间距 / 圆角 / 控件高 / 图标 / 阴影 / 布局尺寸换算成 rem（3 位小数），间距按 `spacing.<rem×100>` 命名（`spacing.150` = 1.5rem）、网格改为 0.01rem，根字号记成 `size.root-font`（px）= `layout.root.font-size`，`$description` 里附桌面视口下的 px。边线宽、断点、焦点环保留 px。预览板按 `layout.root.font-size` 渲染 rem。各页根字号不一致 → 警告并要求重新取证。
 
 - **间距**：`padding` / `gap` / `margin` 的 px 值，只收 ≤ 160、在 2px 网格上、出现 ≥ 2 次的；**一律按 4px 阶梯命名** `spacing.<px/4>`（6 → `1-5`、10 → `2-5`、14 → `3-5`、2 → `0-5`），与 Citrine 一致，配方 / 桥接里的 `--spacing-4` 才永远是 16px。奇数值记警告（漂移）。语义留白：`space.inline` = 最常见的 ≤ 12px gap，`space.stack` = 12～40px 里最常见的 gap，`space.gutter` = 区块左右 padding，`space.card` = 卡片 padding；没证据取阶梯里最接近 8 / 16 / 24 / 24 的值并标 `[推断]`。表格 `td` 的 padding → `table.cell.padding-y / -x`。
 - **圆角**：出现 ≥ 2 次的值从小到大按档数命名（1 档 = `md`；2 = `sm md`；3 = `sm md lg`；4 = `xs sm md lg`；5 = `+xl`；6 = `+2xl`）；百分比 / ≥ 999 / 高度一半 → `radius.full` = 999px。`$description` 里写用在哪类元素上，DESIGN「按容器层级递减」由人校。

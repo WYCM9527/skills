@@ -2,7 +2,7 @@
 name: web-to-design-system
 description: 从任意网站（一个或多个 URL）用浏览器实测证据提炼一套按本仓库 token 规范组织的设计系统种子——DTCG 2025.10 CSS Profile 的 primitives / semantic token、与 Citrine 对齐的语义角色词表、Core + Theme delta、design-system/ 目录、DESIGN.md（只写意图）与 AUDIT.md（观察 / 推断 / 缺口 / 对比度），能过 design-system-steward validate / build / guard，可选打成带 design-system.json 的种子包供 design-system-adopter 接入。用户说「把这个网站做成设计系统 / 提炼 XX 网站的 token / 按我们的规范抓一套设计系统 / web to design system / 参考这个站起一套规范」时使用。不用于：接入已发布的设计系统（design-system-adopter）、治理项目自身规范或迁移存量（design-system-steward）、只想要一份自由格式 DESIGN.md（原 web-to-design-md）。
 metadata:
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # Web to Design System
@@ -55,14 +55,18 @@ node <本 skill>/scripts/extract-evidence.mjs <url> [<url> …] --out /tmp/<id>-
 #   [--viewports 1440x900,1024x768,390x844] [--no-dark] [--no-hover] [--no-responsive] [--session <name>]
 ```
 
-输出一行摘要（几种颜色、几档字号、首屏明暗、是否拿到另一模式、悬停样本数）。证据 JSON 放系统临时目录，不进项目。
+输出一行摘要（几种颜色、几档字号、首屏明暗、是否拿到另一模式、悬停样本数）。证据 JSON 放系统临时目录，不进项目。每个 URL 打开后会 reload 一次再测（同源 hash 路由的 `open` 不重载文档，上一页留下的视口 / class / 悬停状态会污染证据）。SPA 的路由靠点导航拿：先 `snapshot -i` 看菜单项，点一遍记下 `location.hash`，兜底页（各路由节点数一样）不要。
 
 ### 2. 起草
 
 ```bash
 node <本 skill>/scripts/draft-tokens.mjs --evidence /tmp/<id>-evidence.json --out /tmp/<id>-draft --id <id> --name "<名称>"
 #   [--brand #hex]（品牌族判错时指定） [--min-count 2] [--fill inferred|observed]（observed = 只写有证据的角色）
+#   [--unit auto|px|rem]（默认 auto：根字号偏离 16px 超过 2px 的站点按 rem 起草，见下）
 ```
+
+- `--brand` 只定品牌族与品牌角色（`color.brand.indicator` / `bg.brand` / `text.brand`）；`color.action.primary` 仍跟按钮证据走——深底站点主按钮常是白的，品牌色只做焦点，两者要分开。
+- **rem 站点**：`html` 根字号被 JS 设成 `100vw / N` 的站点（1440 宽下 9px 之类），px 值全是「根字号 × rem」的乘积，按 px 起草没有意义。auto 模式会把字号 / 间距 / 圆角 / 控件高 / 阴影 / 布局尺寸换算成 rem，间距按 `spacing.<rem×100>` 命名，根字号记成 `size.root-font` = `layout.root.font-size`；边线宽、断点保留 px。摘要会提醒「接入项目必须复刻根字号规则」。各页根字号不一致会警告——那是站点 resize 脚本的 bug 污染了证据，重新取证。
 
 产物：`tokens/primitives.tokens.json`、`tokens/semantic.tokens.json`、（有证据时）`themes/<id>/tokens/semantic.tokens.json` + `theme-map.json`、`audit-summary.md`、`draft-notes.json`。**先读 `audit-summary.md`**，规则在 [references/mapping-rules.md](references/mapping-rules.md)。
 
@@ -70,7 +74,9 @@ node <本 skill>/scripts/draft-tokens.mjs --evidence /tmp/<id>-evidence.json --o
 
 按 [references/semantic-roles.md](references/semantic-roles.md) 逐组核对草稿，直接改 `/tmp/<id>-draft/tokens/*.json`：
 
-- **判错的观察**：品牌族错了 → `--brand` 重跑；正文色 / 卡片底选错 → 改 alias。
+- **判错的观察**：品牌族错了 → `--brand` 重跑（看首屏截图定：hero 大字 / 主按钮 / 光效用的那个有彩色才是品牌，进度点、装饰粒子不是）；正文色 / 卡片底选错 → 改 alias。
+- **逐字动画站点**：标题被拆成单字 `<span>` 时元素数会灌大——正文字号、行高、字重都按承载字数选，但仍要对着 `audit-summary.md` 的字号表核一眼「正文 = 承载最多字的字号」是不是真的正文。
+- **批量补缺口时写一次性脚本**（放系统临时目录，不进种子）：import 本 skill 的 `scripts/lib/dtcg.mjs` / `color.mjs`，用 `setPath` 加 Primitive 与别名、`composite` 算 14% 预混浅底、`contrastRatio` 验对比；同时同步 `draft-notes.json` 的 `roles` / `missing` / `counts`，scaffold 生成的 AUDIT 才和 token 一致。
 - **推断项**：能从证据确认的把 `[推断]` 改 `[确认]`；不同意的改 alias；拿不准的留着（AUDIT 会列出来）。
 - **缺口**：core 层必须处理，三选一——补证据（换页面再取）/ 按规则推断并标注 / 写明本系统不需要；extended / shell 按站点类型决定。
 - **品牌决定要问用户**（≤ 4 题，带推荐项）：选中态用品牌色还是反转块、链接靠色相还是下划线、暗色是否纳管（拿到了另一模式才问）、状态色缺证据时是否借公司调色板。

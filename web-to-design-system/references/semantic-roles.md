@@ -2,10 +2,10 @@
 
 Semantic 层的用途名。与 Citrine 种子的 `semantic.tokens.json` 对齐：同一个名字在任何按本规范提炼的系统里都指同一种用途，值不同、名字不变——这样桥接（`bridge/element-plus.css` 这类逐组件接管）、配方（`recipes.css`）、迁移角色表（`migration/roles.json`）以后才能跨系统复用。机器可读版是 `scripts/lib/roles.mjs`（draft-tokens 用它列缺口、check-contrast 用它配对、render-token-board 用它分组）；改一处要同步另一处。
 
-共 159 个角色，分三层：
+共 160 个角色，分三层：
 
 - **core（79）**：任何站点都该有。起草后缺口里的 core 项必须处理——补证据、按 [mapping-rules.md](mapping-rules.md)「缺口怎么补」推断并标注、或写明「本系统不需要」的理由进 AUDIT。
-- **extended（52）**：有证据再填；选中态、骨架屏、大字等多见于产品 / 中后台，营销站常没有。
+- **extended（53）**：有证据再填；选中态、骨架屏、大字等多见于产品 / 中后台，营销站常没有。
 - **shell（28）**：中后台壳层（侧栏、表格、图表、涨跌、弹窗尺寸），只在目标是后台系统时补。
 
 角色名以外的 Semantic 也允许（站点有独特用途时），但先问自己能不能落到已有角色；新名字进 AUDIT「风险与待确认」。
@@ -227,6 +227,7 @@ Semantic 层的用途名。与 Citrine 种子的 `semantic.tokens.json` 对齐�
 | `layout.container.max-width` | dimension | extended | 内容容器最大宽 | 居中容器的 max-width | 否 |
 | `layout.breakpoint.mobile` | dimension | core | 手机断点 | 样式表 @media 里最常见的小断点 | 否 |
 | `layout.breakpoint.narrow` | dimension | core | 窄屏断点 | — | 否 |
+| `layout.root.font-size` | dimension | extended | html 根字号 | vw 缩放的 rem 站点才有：桌面视口下 html 的 font-size，所有 rem 尺寸的基准 | 否 |
 | `layout.form.label-width` | dimension | shell | 横向表单标签列宽 | — | 否 |
 | `layout.form.max-width` | dimension | shell | 单列表单最大宽 | — | 否 |
 | `layout.modal.width.sm` | dimension | shell | 确认弹窗宽 | — | 否 |
