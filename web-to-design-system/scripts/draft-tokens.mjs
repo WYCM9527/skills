@@ -8,6 +8,7 @@
 // 草稿不是终稿：Agent 要按 semantic-roles.md 逐角色核对，补齐缺口、纠正判断，再 scaffold-system.mjs 写入并交给 steward 校验。
 //
 // 用法：node draft-tokens.mjs --evidence <file.json> --out <dir> [--id <system-id>] [--name <名称>] [--min-count 2] [--brand #hex] [--fill inferred|observed]
+//       [--profile auto|brand|product|admin]（系统类型：决定哪些角色必须处理、推断只填哪些；auto 从证据推断，预检时仍要向用户确认）[--unit auto|px|rem]
 
 import path from "node:path";
 
@@ -16,18 +17,21 @@ import { contrastRatio, hueFamily, isDark, parseCssColor, rgbaToOklch, toHex } f
 import { aliasToken, colorToken, cubicBezierToken, dimensionToken, durationToken, fontFamilyToken, fontWeightToken, hasPath, numberToken, setPath, sortTokenTree, stringToken } from "./lib/dtcg.mjs";
 import { desktopProbe, detectBaseUnit, isMonoStack, kindScore, mergeColors, mergeCounts, mergePairs, parseBoxShadow, parseFontFamily, parseTimingFunction } from "./lib/evidence.mjs";
 import { detectBrandFamily, Palette } from "./lib/palette.mjs";
-import { ROLE_BY_PATH, ROLES } from "./lib/roles.mjs";
+import { inferableRoles, PROFILE_IDS, PROFILES, requiredRoles, ROLE_BY_PATH, ROLES } from "./lib/roles.mjs";
 
 const OBSERVED = "[观察]";
 const INFERRED = "[推断]";
 
 class Draft {
-  constructor({ allowInferred = true } = {}) {
+  constructor({ allowInferred = true, profile = "product" } = {}) {
     this.allowInferred = allowInferred;
+    this.profile = profile;
+    this.required = requiredRoles(profile);
+    this.inferable = inferableRoles(profile);
     this.primitives = {};
     this.semantic = {};
     this.theme = {};
-    this.notes = { missing: [], roles: {}, warnings: [] };
+    this.notes = { missing: [], optional: [], roles: {}, warnings: [] };
   }
 
   primitive(tokenPath, token) {
@@ -37,12 +41,18 @@ class Draft {
     return tokenPath;
   }
 
-  /** 语义别名；同一角色只登记一次（先到先得——观察在前、推断在后由调用顺序保证）。target 为空、或 --fill observed 下的推断项，静默跳过。 */
+  /**
+   * 语义别名；同一角色只登记一次（先到先得——观察在前、推断在后由调用顺序保证）。target 为空、或 --fill observed 下的推断项，静默跳过。
+   * 推断只填该系统类型允许推断的角色（roles.mjs inferableRoles）：品牌 / 内容站不会被发明出状态色、危险色、选中态、骨架屏；有证据的观察项不受限制。
+   */
   role(tokenPath, type, target, { source, evidence }) {
     if (hasPath(this.semantic, tokenPath) || !target || (source === "inferred" && !this.allowInferred)) {
       return false;
     }
     const meta = ROLE_BY_PATH.get(tokenPath);
+    if (source === "inferred" && meta && !this.inferable.has(tokenPath)) {
+      return false;
+    }
     setPath(this.semantic, tokenPath, aliasToken(type, target, `${source === "observed" ? OBSERVED : INFERRED} ${evidence}`.trim()));
     this.notes.roles[tokenPath] = { evidence, source, target, tier: meta?.tier ?? "custom" };
     return true;
@@ -460,7 +470,34 @@ async function main() {
   }
   palette.assignNames();
 
-  const draft = new Draft({ allowInferred: FILL_INFERRED });
+  // 系统类型：--profile 指定，或从证据推断（侧栏 + 表格 → 中后台；表格 / 成组输入框 / 状态徽标 / 状态类根变量 → 产品 UI；否则品牌 / 内容站）
+  const profileOption = String(options.profile ?? "auto");
+  if (profileOption !== "auto" && !PROFILE_IDS.includes(profileOption)) {
+    throw new Error(`--profile 只接受 ${["auto", ...PROFILE_IDS].join(" / ")}，收到 ${profileOption}`);
+  }
+  // 信号按单页取最大值（联系表单在每页页脚出现一次不等于「有表单」）；内容站也会有一张表，表格单独不算产品 UI 的证据
+  const perPage = probes.map((probe) => ({
+    badges: probe.components?.badges?.length ?? 0,
+    controls: (probe.components?.inputs ?? []).filter((input) => /select|checkbox|radio|number|date|search/.test(String(input.type))).length,
+    inputs: probe.components?.inputs?.length ?? 0,
+    sidebar: Boolean(probe.layout?.sidebar),
+    tables: probe.components?.tables?.length ?? 0
+  }));
+  const maxInputs = Math.max(0, ...perPage.map((page) => page.inputs));
+  const maxBadges = Math.max(0, ...perPage.map((page) => page.badges));
+  const anyControls = perPage.some((page) => page.controls > 0);
+  const pagesWithTables = perPage.filter((page) => page.tables > 0).length;
+  const hasSidebar = perPage.some((page) => page.sidebar);
+  const statusVars = Object.keys(rootVariables).filter((name) => /success|warning|danger|error|info/i.test(name)).length;
+  const productSignals = [maxInputs >= 4, anyControls, maxBadges >= 3, statusVars >= 4, pagesWithTables >= 2 || (pagesWithTables >= 1 && (maxBadges >= 1 || maxInputs >= 3))].filter(Boolean).length;
+  const inferredProfile = hasSidebar && pagesWithTables >= 1 ? "admin" : productSignals >= 1 ? "product" : "brand";
+  const profileSignals = `侧栏 ${hasSidebar ? "有" : "无"} · 有表格的页面 ${pagesWithTables}/${perPage.length} · 单页最多输入框 ${maxInputs}${anyControls ? "（含选择 / 勾选类控件）" : ""} · 单页最多状态徽标 ${maxBadges} · 状态类根变量 ${statusVars}`;
+  const profile = profileOption === "auto" ? inferredProfile : profileOption;
+  const profileNote = { id: profile, label: PROFILES[profile].label, source: profileOption === "auto" ? "auto" : "user", signals: profileSignals, inferred: inferredProfile };
+
+  const draft = new Draft({ allowInferred: FILL_INFERRED, profile });
+  if (profileOption === "auto") draft.warn(`系统类型按证据推断为「${PROFILES[profile].label}」（${profileSignals}）——预检时要向用户确认；不对就加 --profile brand|product|admin 重跑`);
+  else if (inferredProfile !== profile) draft.warn(`用户指定系统类型「${PROFILES[profile].label}」，但证据更像「${PROFILES[inferredProfile].label}」（${profileSignals}）——按指定的来，缺口会相应变多或变少`);
   for (const entry of palette.entries.values()) {
     draft.primitive(entry.path, colorToken(entry.rgba, [...entry.descriptions].slice(0, 3).join("；")));
   }
@@ -1026,11 +1063,14 @@ async function main() {
   // 缺口、写文件、摘要
 
   for (const role of ROLES) {
-    if (!draft.target(role.path)) draft.notes.missing.push({ group: role.group, hint: role.hint, path: role.path, tier: role.tier, type: role.type, zh: role.zh });
+    if (draft.target(role.path)) continue;
+    const entry = { group: role.group, hint: role.hint, path: role.path, tier: role.tier, type: role.type, zh: role.zh };
+    if (draft.required.has(role.path)) draft.notes.missing.push(entry);
+    else draft.notes.optional.push(entry);
   }
   const observedCount = Object.values(draft.notes.roles).filter((entry) => entry.source === "observed").length;
   const inferredCount = Object.values(draft.notes.roles).filter((entry) => entry.source === "inferred").length;
-  const coreMissing = draft.notes.missing.filter((entry) => entry.tier === "core");
+  const coreMissing = draft.notes.missing; // 必须处理的缺口（按系统类型），命名沿用
   const themeTokens = Object.keys(draft.theme).length ? sortTokenTree(draft.theme) : null;
 
   await writeJson(path.join(outDir, "tokens", "primitives.tokens.json"), sortTokenTree(draft.primitives), { stable: false });
@@ -1053,6 +1093,7 @@ async function main() {
   const familyRows = Object.entries(palette.families()).map(([family, list]) => `| ${family} | ${list.length} | ${list.map((entry) => `${entry.path.split(".").slice(2).join(".")} \`${entry.hex}\``).join("、")} |`);
   const roleRows = Object.entries(draft.notes.roles).sort(([left], [right]) => left.localeCompare(right)).map(([rolePath, entry]) => `| \`${rolePath}\` | ${entry.source === "observed" ? "观察" : "推断"} | \`{${entry.target}}\` | ${entry.evidence} |`);
   const missingRows = draft.notes.missing.map((entry) => `| \`${entry.path}\` | ${entry.tier} | ${entry.zh} | ${entry.hint || "—"} |`);
+  const optionalRows = draft.notes.optional.map((entry) => `| \`${entry.path}\` | ${entry.tier} | ${entry.zh} | ${entry.hint || "—"} |`);
   const hoverRows = interactions.hover.map((entry) => `| ${entry.tag} 「${entry.text}」 | ${entry.changed?.length ? entry.changed.map((key) => `${key}: ${entry.before[key]} → ${entry.after[key]}`).join("；") : "无变化"} |`);
   const focusRows = interactions.focus.map((entry) => `| ${entry.tag} 「${entry.text}」 | ${entry.changed?.length ? entry.changed.map((key) => `${key}: ${entry.after[key]}`).join("；") : "无可见焦点样式"} |`);
   const modeRows = Object.entries(pages[0].modes ?? {}).map(([key, value]) => `| ${key} | ${value.scheme ?? "—"} | ${key === "initial" ? "首屏" : value.changed ? "页面明暗翻转 ✔" : "无变化"} | ${value.source ?? ""} |`);
@@ -1063,7 +1104,8 @@ async function main() {
 - 取证时间：${evidence.extractedAt}；桌面视口 ${primary.viewport?.width}×${primary.viewport?.height}；处理节点 ${primary.nodesProcessed}/${primary.nodesTotal}
 - 首屏模式：${initialScheme}${alternate ? `；另一模式：${alternate.key}（${alternate.scheme}）` : "；未取到另一模式（站点无暗 / 亮切换，或切换靠 JS 且未识别）"}
 - 品牌族判定：${brandFamily ?? "无（单色站点）"}${brandDetection.ranking.length ? `（得分：${brandDetection.ranking.map(([family, score]) => `${family} ${score.toFixed(1)}`).join("、")}）` : ""}${brandOverride ? "，用户指定覆盖" : ""}${brandHex ? `；品牌色 \`${brandHex}\`` : ""}${primaryHex && brandHex && primaryHex !== brandHex ? `，主按钮填充 \`${primaryHex}\`（两者不同）` : ""}
-- 角色覆盖：观察 ${observedCount} · 推断 ${inferredCount} · 缺口 ${draft.notes.missing.length}（其中 core 层 ${coreMissing.length}）
+- 系统类型：**${PROFILES[profile].label}**（${profileNote.source === "auto" ? "按证据推断" : "用户指定"}；${profileSignals}）——决定下面哪些缺口必须处理
+- 角色覆盖：观察 ${observedCount} · 推断 ${inferredCount} · 必须处理的缺口 ${draft.notes.missing.length} · 可选未填 ${draft.notes.optional.length}
 
 ## 颜色（按出现次数）
 
@@ -1134,13 +1176,21 @@ ${focusRows.join("\n") || "| — | 未观察到可见焦点样式 |"}
 | --- | --- | --- | --- |
 ${roleRows.join("\n")}
 
-## 缺口（${missingRows.length}）
+## 必须处理的缺口（${missingRows.length}）
 
-先补 core 层；extended / shell 层按站点类型决定要不要。补法见 references/mapping-rules.md「缺口怎么补」。
+系统类型「${PROFILES[profile].label}」下必须处理的角色：补证据（换页面再取）/ 按规则推断并标注 / 写明本系统不需要。补法见 references/mapping-rules.md「缺口怎么补」。
 
 | 角色 | 层 | 含义 | 找证据的位置 |
 | --- | --- | --- | --- |
 ${missingRows.join("\n") || "| — | | | |"}
+
+## 可选角色未填（${optionalRows.length}）
+
+这个系统类型不要求、本次也没证据的角色。有证据再填，没有就留空——不要为它们发明值。
+
+| 角色 | 层 | 含义 | 找证据的位置 |
+| --- | --- | --- | --- |
+${optionalRows.join("\n") || "| — | | | |"}
 
 ## 警告
 
@@ -1150,12 +1200,14 @@ ${draft.notes.warnings.map((warning) => `- ${warning}`).join("\n") || "- 无"}
   await writeJson(path.join(outDir, "draft-notes.json"), {
     alternateMode: alternate ? { key: alternate.key, scheme: alternate.scheme, source: alternate.source } : null,
     brand: { family: brandFamily, override: brandOverride ? toHex(brandOverride) : null, ranking: brandDetection.ranking },
-    counts: { inferred: inferredCount, missing: draft.notes.missing.length, missingCore: coreMissing.length, observed: observedCount, primitives: countTokens(draft.primitives), themeDelta: themeTokens ? countTokens(themeTokens) : 0 },
+    counts: { inferred: inferredCount, missing: draft.notes.missing.length, missingCore: coreMissing.length, observed: observedCount, optional: draft.notes.optional.length, primitives: countTokens(draft.primitives), themeDelta: themeTokens ? countTokens(themeTokens) : 0 },
     evidence: evidencePath,
     id: systemId,
     initialScheme,
     missing: draft.notes.missing,
     name: systemName,
+    optional: draft.notes.optional,
+    profile: profileNote,
     roles: draft.notes.roles,
     sources: pages.map((page) => ({ title: page.title, url: page.url })),
     themeMap,
@@ -1163,9 +1215,9 @@ ${draft.notes.warnings.map((warning) => `- ${warning}`).join("\n") || "- 无"}
   });
 
   if (options.json === true) {
-    printJson({ counts: { inferred: inferredCount, missing: draft.notes.missing.length, observed: observedCount, primitives: countTokens(draft.primitives) }, out: outDir, theme: themeId });
+    printJson({ counts: { inferred: inferredCount, missing: draft.notes.missing.length, observed: observedCount, optional: draft.notes.optional.length, primitives: countTokens(draft.primitives) }, out: outDir, profile: profileNote, theme: themeId });
   } else {
-    process.stdout.write(`草稿已写到 ${outDir}\n  primitives ${countTokens(draft.primitives)} 个 · 语义角色 观察 ${observedCount} / 推断 ${inferredCount} / 缺口 ${draft.notes.missing.length}（core 缺 ${coreMissing.length}）${themeId ? ` · Theme ${themeId} delta ${countTokens(themeTokens)} 条` : " · 无 Theme"}\n  先读 audit-summary.md，逐角色核对后再 scaffold-system.mjs 写入。\n`);
+    process.stdout.write(`草稿已写到 ${outDir}\n  系统类型 ${PROFILES[profile].label}（${profileNote.source === "auto" ? "按证据推断，预检时向用户确认" : "用户指定"}） · primitives ${countTokens(draft.primitives)} 个 · 语义角色 观察 ${observedCount} / 推断 ${inferredCount} / 必须处理的缺口 ${draft.notes.missing.length} / 可选未填 ${draft.notes.optional.length}${themeId ? ` · Theme ${themeId} delta ${countTokens(themeTokens)} 条` : " · 无 Theme"}\n  先读 audit-summary.md，逐角色核对后再 scaffold-system.mjs 写入。\n`);
   }
 }
 

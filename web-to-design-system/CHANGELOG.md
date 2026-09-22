@@ -7,6 +7,18 @@
 - **默认 `description` 不该是用户决策**：`scaffold-system.mjs` 不传 `--description` 时写成「<名称>：从 <URL> 实测提炼的设计系统。」，这句会落到根 README 表格「定位」列、`design-system.json`、`<id>/README.md`、`package.json`。改为从 `draft-notes.json` 拼一句能直接上表的定位（来源域名 · 主操作色与色族 · 有无另一模式 · 栈与桥接状态），并把 SKILL「6. 发布到 Design-System 仓库」里「写进仓库前问用户 `--description`」改成「Agent 按证据起草定位，给用户过目即可」。
 - **npm 发布不在 skill 里决定**：提炼出的种子继续默认不带 `publishConfig`（只走文件夹 / Release 直链渠道，adopter 接入与按 tag 升级都不依赖 registry）；何时值得上 npm 的判据记在 Design-System 仓库 GUIDE 8c 第 8 步，`release.yml` 已会自动识别 `publishConfig`。
 
+## 0.5.0 — 2026-09-22
+
+纠正一个前提：提炼出来的设计系统不都是给中后台用的。此前词表的 core 层混着只有产品 UI 才有的角色、「core 缺口必须处理」的规则、DESIGN 模板的产品词汇（状态胶囊 / 表格 / 分页 / 骨架屏）、以及对种子默认引导拷 Element Plus / shadcn 桥接，合起来会把一个品牌官网写成中后台底座（OXYZ3 第一版就是这样：借 Citrine 值补了 93 个角色、拷了 21 个桥接文件）。同一站点重跑会得到不同的角色集合与文档，所以是 minor。
+
+- **系统类型（profile）**：`brand` 品牌 / 内容站、`product` 产品 UI、`admin` 中后台。`roles.mjs` 新增 `PROFILES` / `requiredRoles()` / `inferableRoles()`：brand 必须处理 core 去掉产品专属 24 个 = 55，只允许推断品牌面 / 大字 / 链接装饰 / 浮层阴影 / 缓动；product = core 79，可推断 extended；admin = core + shell 107，全部可推断。有证据的观察项不受类型限制。
+- **`draft-tokens --profile auto|brand|product|admin`**：auto 从证据推断（侧栏 + 表格 → admin；单页 ≥ 4 输入框 / 选择勾选控件 / ≥ 3 状态徽标 / 状态类根变量 / 多页有表格 → product；否则 brand），信号按单页取最大值（页脚联系表单出现 5 次不算「有表单」）。摘要与 `draft-notes.json` 记 `profile`，缺口分「必须处理」与「可选角色未填」，用户指定与证据不一致时提醒。
+- **DESIGN 模板按类型拆**：「先读这里 / 视觉语言 / 组件原则 / 组件配方」四段来自 `assets/profiles/<profile>/`；brand 版说的是导航 / Hero / 区块 / CTA / 作品卡 / 图片上的文字 / 联系表单 / 页脚，不再有表格、分页、状态胶囊。AUDIT 模板加「系统类型」与「可选角色（未填）」；种子 README 与身份文件 `design-system.json` 写 `profile`（adopter schema 加了可选字段）。
+- **scaffold**：读草稿的 profile（`--profile` 可覆盖）；对 brand 传 `--with-citrine-bridges` 会提醒「品牌站通常不需要组件库桥接」；显式传 `--description` 时重写根 README 已有行的定位（此前只更新版本）。
+- **预览板按类型取舍样例**：brand 显示导航当前项 / hover、主 CTA、Hero 大字、联系表单，不再显示靠后备值撑着的状态胶囊 / 危险按钮 / Tooltip；默认读 `<system>/../design-system.json` 的 profile。
+- SKILL：预检增加第 4 问「系统类型」（推荐项按站点本身给）；选页面、缺口规则、桥接只对 product / admin 提问；mapping-rules 加「三种类型各必须处理 / 允许推断 / 不借值」表；`text.caption.size` 的「国内中后台下限」措辞改掉。
+- OXYZ3 种子按 brand 重做：189 个 token（原 338），30 条 `[推断]`（原 126），无桥接，纯 CSS 接入。
+
 ## 0.4.0 — 2026-09-22
 
 用 OXYZ3（游戏化创意工作室官网，React SPA + hash 路由 + WebGL + 逐字动画，根字号 `100vw / 160`）做第四个端到端验证并写进 Design-System 仓库（`oxyz3/seeds/oxyz3`）后加的能力与修的判定；rem 站点的 token 值与名全变，所以是 minor。

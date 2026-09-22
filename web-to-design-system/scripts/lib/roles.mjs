@@ -1,7 +1,7 @@
 // 语义角色词表：与 Citrine 种子的 semantic.tokens.json 对齐的用途名。draft-tokens 用它列缺口，check-contrast 用它配对，
-// render-token-board 用它分组。tier：core = 任何站点都该有的最小集合；extended = 有证据再填；shell = 中后台壳层（侧栏 / 表格 / 图表），
-// 营销站通常没有。dark = 暗色 Theme 通常需要覆写（true）还是随 Core 不变（false）。
-// references/semantic-roles.md 是这份表的人类版；改一处要同步另一处。
+// render-token-board 用它分组。tier：core = 产品 UI 的基础集合；extended = 有证据再填；shell = 中后台壳层（侧栏 / 表格 / 图表）。
+// 哪些角色「必须处理」不由 tier 单独决定，由系统类型（PROFILES）决定——品牌 / 内容站不必发明状态色与危险色，中后台则连 shell 一起要。
+// dark = 暗色 Theme 通常需要覆写（true）还是随 Core 不变（false）。references/semantic-roles.md 是这份表的人类版；改一处要同步另一处。
 
 export const ROLE_GROUPS = [
   ["bg", "底色"],
@@ -124,7 +124,7 @@ export const ROLES = [
   role("font.family.body", "fontFamily", "core", "font", "正文字体栈", "body 的 font-family", false),
   role("font.family.code", "fontFamily", "extended", "font", "等宽字体栈", "code / pre / 单号", false),
   role("font.family.heading", "fontFamily", "extended", "font", "标题字体栈", "标题字体与正文不同时才有", false),
-  role("text.caption.size", "dimension", "core", "typography", "最小字号", "国内中后台下限 12px", false),
+  role("text.caption.size", "dimension", "core", "typography", "最小字号", "正文类文字的下限（中文一般 ≥ 12px）", false),
   role("text.small.size", "dimension", "core", "typography", "小字", "", false),
   role("text.body-sm.size", "dimension", "core", "typography", "小正文", "", false),
   role("text.body.size", "dimension", "core", "typography", "正文", "承载最多文字量的字号", false),
@@ -202,6 +202,52 @@ export const ROLES = [
 ];
 
 export const ROLE_BY_PATH = new Map(ROLES.map((entry) => [entry.path, entry]));
+
+/**
+ * 系统类型：这套规范给什么类型的产品用。决定「必须处理」的角色集合（补证据 / 按规则推断并标注 / 写明不需要）、
+ * DESIGN 用哪套组件配方词汇、要不要拷组件库桥接。预检时向用户确认；draft-tokens 能从证据自动推断（notes.profile）。
+ */
+export const PROFILES = {
+  brand: { label: "品牌 / 内容站", zh: "官网、活动页、作品集、博客、文档站：以读和看为主，交互只有导航、链接、CTA 与少量表单", bridges: false },
+  product: { label: "产品 UI", zh: "面向用户的应用 / SaaS 前台：表单、列表、弹窗、状态反馈齐全，但没有后台壳层", bridges: true },
+  admin: { label: "中后台", zh: "侧栏 + 表格 + 图表 + 弹窗尺寸的工作台", bridges: true }
+};
+export const PROFILE_IDS = Object.keys(PROFILES);
+
+/** core 里只有产品 UI 才用得上的角色：品牌 / 内容站不必处理（有证据仍会填）。 */
+const PRODUCT_ONLY_CORE = new Set([
+  "color.status.success", "color.status.success-bg", "color.status.warning", "color.status.warning-bg", "color.status.error", "color.status.error-bg",
+  "color.status.info", "color.status.info-bg", "color.status.neutral", "color.status.neutral-bg",
+  "color.action.danger", "color.action.danger-hover", "color.action.danger-active", "color.text.on-danger", "color.text.danger",
+  "color.bg.input", "color.border.input", "color.text.placeholder", "color.bg.elevated",
+  "control.height.sm", "control.height.lg", "layer.dropdown", "layer.toast", "opacity.disabled"
+]);
+
+/** 品牌 / 内容站里按规则推断也说得通的 extended 角色：品牌面 / 大字 / 链接装饰 / 浮层阴影 / 缓动；选中态、骨架屏、只读、图标库这类产品交互不推断。 */
+const BRAND_INFERABLE_EXTENDED = new Set([
+  "color.bg.brand", "color.text.brand", "color.text.on-brand", "color.brand.indicator", "color.icon.brand", "color.border.current",
+  "font.family.heading", "text.display.size", "text.display.weight", "text.display.line-height", "text.display.tracking", "text.hero.size", "text.hero.line-height",
+  "text.paragraph.line-height", "text.weight.brand", "text.tracking.caps", "text.link.decoration", "layout.container.max-width", "layout.root.font-size",
+  "elevation.popover.y", "elevation.popover.blur", "elevation.popover.color", "elevation.modal.y", "elevation.modal.blur", "elevation.modal.color", "motion.easing.enter", "motion.easing.exit"
+]);
+
+/** 该系统类型下允许「按规则推断」写入的角色：admin 全部；product = core + extended；brand = 必须集 + 品牌 / 排版 / 浮层类 extended。观察项不受此限。 */
+export function inferableRoles(profile) {
+  const id = PROFILES[profile] ? profile : "product";
+  if (id === "admin") return new Set(ROLES.map((role) => role.path));
+  if (id === "product") return new Set(ROLES.filter((role) => role.tier !== "shell").map((role) => role.path));
+  return new Set([...requiredRoles("brand"), ...BRAND_INFERABLE_EXTENDED]);
+}
+
+/** 该系统类型下「必须处理」的角色路径集合。 */
+export function requiredRoles(profile) {
+  const id = PROFILES[profile] ? profile : "product";
+  return new Set(ROLES.filter((role) => {
+    if (id === "admin") return role.tier === "core" || role.tier === "shell";
+    if (id === "brand") return role.tier === "core" && !PRODUCT_ONLY_CORE.has(role.path);
+    return role.tier === "core";
+  }).map((role) => role.path));
+}
 
 /**
  * 旧规范 → 新 token 的角色对照（design-system-adopter「更换现有规范」剧本在 settle 阶段用它起草决策文件）。

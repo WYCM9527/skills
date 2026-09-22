@@ -1,0 +1,7 @@
+- 导航：顶栏高 `layout.topbar.height`，是否吸顶（`layer.sticky`）；当前项与 hover 的表达（待填写）；窄屏（`layout.breakpoint.mobile` 以下）收进全屏菜单——遮罩 `color.bg.overlay`，层级 `layer.modal`。
+- 区块（section）：底色只在 `color.bg.page` / `surface` / `subtle` / `inverse` 四档里切换；上下留白 `space.stack`，左右 `space.gutter`，居中容器 `layout.container.max-width`。
+- CTA / 按钮：主 CTA `color.action.primary` / `-hover` / `-active` + `color.text.on-primary`；次要按钮透明底 + `color.border.strong` 边线；hover 反馈（待填写：换填充 / 反白 / 换边线）；高度 `control.height.md`，页面级唯一主 CTA 可用 `control.height.lg`（如果有这一档）。
+- 卡片 / 作品卡 / 媒体块：分层手段（待填写：底色差 / 边线 `color.border.default` / 阴影 `elevation.card.*`），圆角 `radius.*`，内边距 `space.card`；图片上的文字 `color.text.inverse` + `color.bg.overlay`。
+- 表单（联系 / 订阅）：输入框与按钮共用 `control.height.md`；输入框 `color.bg.input` / `color.border.input`，占位符 `color.text.placeholder`（如果有），聚焦 `color.border.focus` + 焦点环。
+- 页脚：底（待填写：`color.bg.inverse` / `subtle`），文字 `color.text.secondary` / `muted`，链接 `color.text.link`。
+- 动效：入场、滚动联动、跑马灯、WebGL 这类品牌动效不进 token，页面自己实现；token 只提供三档时长（`motion.duration.*`）与缓动（`motion.easing.*`），并遵守「减少动态效果」。

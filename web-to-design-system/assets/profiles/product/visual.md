@@ -1,0 +1,5 @@
+- 待填写：品牌色的角色与面积（引用 `color.action.primary` / `color.brand.indicator` / `color.bg.brand` 等角色名，不写 hex）。
+- 待填写：中性色的调性（冷灰 / 暖灰 / 纯灰）与层次手段（边线 / 阴影 / 底色差）。
+- 待填写：文字色三档（`color.text.primary / secondary / muted`）的用途边界与占位符（`color.text.placeholder`）的适用范围。
+- 待填写：字体栈（`font.family.body`）、根字号（`text.body.size`）、字号阶梯有几档、最小字号。
+- 待填写：状态色的色相归属（success / warning / error / info 各是哪一族）以及与品牌色如何靠色相分开。

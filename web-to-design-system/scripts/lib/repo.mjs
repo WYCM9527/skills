@@ -58,7 +58,8 @@ export function enumerateSystems(repoRoot) {
 const TABLE_HEADER = /^\| 设计系统 \| 定位 \| 版本 \|$/m;
 
 /** 根 README 的系统表格：已有该 id 的行则替换版本，没有则在表格末尾追加一行；没有表格返回 { changed: false, reason }。 */
-export function upsertReadmeRow(readmeText, { description, id, name, version }) {
+/** 行已存在时默认只更新版本（定位那一句可能被人改过）；replaceDescription = true（用户显式传了 --description）才整行重写。 */
+export function upsertReadmeRow(readmeText, { description, id, name, replaceDescription = false, version }) {
   const headerMatch = readmeText.match(TABLE_HEADER);
   if (!headerMatch) {
     return { changed: false, reason: "根 README 没有「| 设计系统 | 定位 | 版本 |」表格", text: readmeText };
@@ -74,6 +75,10 @@ export function upsertReadmeRow(readmeText, { description, id, name, version }) 
   if (rowIndex >= 0) {
     if (lines[rowIndex] === row) {
       return { changed: false, reason: "行已存在且一致", text: readmeText };
+    }
+    if (replaceDescription) {
+      lines[rowIndex] = row;
+      return { changed: true, reason: "更新定位与版本", text: lines.join("\n") };
     }
     lines[rowIndex] = lines[rowIndex].replace(/\| \d+\.\d+\.\d+ \|\s*$/, `| ${version} |`);
     return { changed: true, reason: "更新版本", text: lines.join("\n") };

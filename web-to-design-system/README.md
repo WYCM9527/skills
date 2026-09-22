@@ -19,7 +19,7 @@ web-to-design-system/
 │   ├── check-contrast.mjs         # 对比度基线（默认模式 + 每个 Theme）
 │   ├── render-token-board.mjs     # token 驱动的预览板（亮暗切换）
 │   └── lib/                       # color（解析 / OKLCH / 对比度）、dtcg、palette、evidence、roles（角色词表 + 迁移对照）、bridges、repo、system、steward、args
-├── assets/                        # DESIGN / AUDIT / THEME 模板、style-dictionary 配置、种子模式的身份文件 / 桥接 / 接线模板 / 系统级 README 模板
+├── assets/                        # DESIGN / AUDIT / THEME 模板、profiles/<brand|product|admin>/ 三套配方词汇、style-dictionary 配置、种子模式的身份文件 / 桥接 / 接线模板 / 系统级 README 模板
 ├── references/                    # token 规范速查、语义角色词表、映射规则、取证清单、浏览器引导
 ├── tests/                         # node --test：夹具证据 → 起草 → 脚手架 → steward 校验 / 构建
 └── agents/openai.yaml

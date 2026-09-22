@@ -1,0 +1,7 @@
+- 按钮、输入框共用同一控件高度（`control.height.md`），小号用 `control.height.sm`，大号只给页面级唯一主操作与触屏。
+- 待填写：按钮的层级（主 / 次要 / 文字按钮 / 危险）各用哪些角色，hover / active 怎么反馈（换填充 `color.action.primary-hover` / 换边线 / 换底 `color.bg.hover`）。
+- 待填写：卡片的分层手段——边线（`color.border.default`）+ 阴影（`elevation.card.*`）还是只用其一。
+- 阴影写法固定：`box-shadow: 0 var(--elevation-<层>-y) var(--elevation-<层>-blur) var(--elevation-<层>-color)`，三层 `card` / `popover` / `modal`。
+- 浮层三件：`color.bg.elevated`（浮层表面）、`color.bg.overlay`（遮罩）、`color.bg.inverse` + `color.text.inverse`（Tooltip / 深色 Toast）。
+- 状态色是文字色不是填充色：徽标 / 提示条 = `color.status.<x>` + `color.status.<x>-bg`。
+- 待填写：图标库（`icon.library`）、尺寸档（`icon.size.*`）、描边（`icon.stroke.width`）、颜色角色（`color.icon.*`）。

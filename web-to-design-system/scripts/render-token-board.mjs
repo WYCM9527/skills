@@ -5,8 +5,11 @@
 // 所以用 --css 指向 dist/index.css 时看到的就是构建结果；不带 --css 时用内联解析值兜底（构建前也能看）。
 //
 // 用法：node render-token-board.mjs --system <design-system 目录> --out <file.html> [--name <名称>] [--css <相对 out 的 dist/index.css 路径>]
+//       [--profile brand|product|admin]（组件样例按系统类型取舍；默认读 <system>/../design-system.json 的 profile，没有就按 product）
 
 import path from "node:path";
+
+import { readFile } from "node:fs/promises";
 
 import { parseArgs, reportError, requireAbsolutePath, requireStringOption, writeText } from "./lib/args.mjs";
 import { aliasTarget, cssValueOf, cssVariableName } from "./lib/dtcg.mjs";
@@ -50,6 +53,15 @@ async function main() {
     throw new Error(`${systemRoot}/tokens 里没有 token`);
   }
   const name = String(options.name ?? path.basename(path.dirname(systemRoot)) ?? "设计系统");
+  // 系统类型：品牌 / 内容站不展示状态胶囊、危险按钮、Tooltip 这类产品样例（它们只会露出后备值），换成导航项 / Hero 大字 / CTA
+  let profile = options.profile === undefined ? null : String(options.profile);
+  if (!profile) {
+    try {
+      const identity = JSON.parse(await readFile(path.join(systemRoot, "..", "design-system.json"), "utf8"));
+      if (typeof identity.profile === "string") profile = identity.profile;
+    } catch { /* 项目模式没有身份文件 */ }
+  }
+  profile = ["brand", "product", "admin"].includes(profile) ? profile : "product";
   const paths = allPaths(system);
   const has = (tokenPath) => system.core.has(tokenPath);
   const semantic = paths.filter((tokenPath) => aliasTarget(system.core.get(tokenPath)?.value));
@@ -197,9 +209,19 @@ ${cssHref ? `<link rel="stylesheet" href="${escape(cssHref)}">` : `<style id="to
 </header>
 <main>
   <section>
-    <h2>组件样例 <small>只用语义变量拼出来的，缺角色会露出后备值</small></h2>
+    <h2>组件样例 <small>只用语义变量拼出来的，缺角色会露出后备值 · 系统类型 ${profile}</small></h2>
     <div class="samples">
-      <div class="sample-card">
+      ${profile === "brand" ? `<div class="sample-card">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <span style="font-weight:var(--text-weight-label);padding:4px 10px;border-bottom:2px solid var(--color-border-current)">导航当前项</span>
+          <span style="font-weight:var(--text-weight-label);padding:4px 10px;background:var(--color-bg-hover);color:var(--color-text-on-primary)">导航 hover</span>
+          <button class="btn primary" type="button">主 CTA</button>
+          <button class="btn" type="button">次要按钮</button>
+        </div>
+        <div style="font-size:var(--text-display-size);line-height:var(--text-display-line-height);font-weight:var(--text-display-weight);color:var(--color-text-brand);font-family:var(--font-family-heading, inherit)">Hero 大字 · text.brand</div>
+        <input class="input" placeholder="联系表单 · color.text.placeholder">
+        <p>正文 <a href="#">内容型链接</a> · <span style="color:var(--color-text-secondary)">次要文字</span> · <span style="color:var(--color-text-muted)">弱化文字</span></p>
+      </div>` : `<div class="sample-card">
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn primary" type="button">主按钮</button>
           <button class="btn" type="button">次要按钮</button>
@@ -213,7 +235,7 @@ ${cssHref ? `<link rel="stylesheet" href="${escape(cssHref)}">` : `<style id="to
         </div>
         <div><span class="tooltip">Tooltip · bg.inverse + text.inverse</span></div>
         <p>正文 <a href="#">内容型链接</a> · <span style="color:var(--color-text-secondary)">次要文字</span> · <span style="color:var(--color-text-muted)">弱化文字</span> · <span style="color:var(--color-text-danger)">危险文字</span></p>
-      </div>
+      </div>`}
       <div class="sample-card">
         <div class="card-sample">
           <b style="font-size:var(--text-title-size);font-weight:var(--text-weight-strong)">卡片标题 · text.title</b>

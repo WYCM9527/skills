@@ -1,0 +1,5 @@
+- 待填写：品牌色的角色与面积（引用 `color.text.brand` / `color.brand.indicator` / `color.bg.brand` / `color.action.primary` 等角色名，不写 hex），以及它与主 CTA 是不是同一个颜色。
+- 待填写：中性色的调性（冷灰 / 暖灰 / 纯灰 / 纯黑白）与区块层次手段（底色差 `color.bg.page / surface / subtle / inverse` / 边线 / 阴影）。
+- 待填写：文字色三档（`color.text.primary / secondary / muted`）的用途边界；图片上的文字（`color.text.inverse`）什么时候用。
+- 待填写：字体栈（`font.family.body` / `font.family.heading`）与授权（商业字体不随系统分发）、根字号（`text.body.size`）、字号阶梯有几档、最小字号、展示大字（`text.display.size` / `text.hero.size`）的行高与字距。
+- 待填写：图片 / 插画 / 视频的处理（圆角 `radius.*`、遮罩 `color.bg.overlay`、比例）与文字的关系。

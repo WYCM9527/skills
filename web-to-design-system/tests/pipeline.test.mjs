@@ -97,7 +97,9 @@ test("起草：颜色分族分档、角色判定、Theme delta、摘要与备注
   // 摘要与备注
   const summary = readFileSync(path.join(draftDir, "audit-summary.md"), "utf8");
   assert.match(summary, /品牌族判定：blue/);
-  assert.match(summary, /## 缺口/);
+  assert.match(summary, /## 必须处理的缺口/);
+  assert.match(summary, /## 可选角色未填/);
+  assert.equal(notes.profile.id, "product", "夹具有状态徽标与状态类根变量 → 产品 UI");
   assert.ok(notes.counts.observed > 60 && notes.counts.inferred > 10, `观察 ${notes.counts.observed} / 推断 ${notes.counts.inferred}`);
   assert.ok(notes.missing.some((entry) => entry.path === "color.bg.overlay"), "弹窗没打开 → overlay 应在缺口里");
   assert.equal(notes.brand.family, "blue");
@@ -112,6 +114,26 @@ test("起草：--brand 覆盖品牌族，--fill observed 不写推断", () => {
   const semantic = flat(readJson(path.join(out, "tokens", "semantic.tokens.json")));
   assert.equal(semantic["color.action.primary"].$value, "{color.brand.500}");
   assert.equal(flat(readJson(path.join(out, "tokens", "primitives.tokens.json")))["color.brand.500"].$value.hex, "#DC2626");
+});
+
+test("起草：系统类型决定必须处理的缺口与可推断的角色——品牌站不发明状态色 / 危险色 / 选中态，中后台连 shell 一起要", () => {
+  const brandOut = path.join(work, "draft-brand");
+  run("draft-tokens.mjs", ["--evidence", EVIDENCE, "--out", brandOut, "--id", "acme", "--profile", "brand"]);
+  const brandNotes = readJson(path.join(brandOut, "draft-notes.json"));
+  assert.equal(brandNotes.profile.id, "brand");
+  assert.equal(brandNotes.profile.source, "user");
+  assert.ok(brandNotes.warnings.some((warning) => warning.includes("证据更像")), "用户指定与证据不一致要提醒");
+  const brandInferred = Object.entries(brandNotes.roles).filter(([, role]) => role.source === "inferred").map(([rolePath]) => rolePath);
+  assert.ok(!brandInferred.some((rolePath) => /^color\.status\.|danger|selected|skeleton|readonly|opacity\.disabled|layer\.(dropdown|toast)/.test(rolePath)), `品牌站不推断产品交互角色：${brandInferred.join(",")}`);
+  assert.equal(brandNotes.roles["color.status.success"]?.source, "observed", "有证据的状态色照样写（观察不受类型限制）");
+  assert.ok(!brandNotes.missing.some((entry) => entry.path.startsWith("color.status.") || entry.path.includes("danger")), "状态 / 危险色不在品牌站的必须处理清单里");
+  assert.ok(brandNotes.optional.some((entry) => entry.path === "color.status.neutral" && entry.tier === "core"), "产品专属的 core 角色对品牌站是可选，不再推断");
+  const adminOut = path.join(work, "draft-admin");
+  run("draft-tokens.mjs", ["--evidence", EVIDENCE, "--out", adminOut, "--id", "acme", "--profile", "admin"]);
+  const adminNotes = readJson(path.join(adminOut, "draft-notes.json"));
+  assert.ok(adminNotes.missing.some((entry) => entry.tier === "shell"), "中后台：shell 层缺口进必须处理清单");
+  assert.ok(adminNotes.counts.missing > brandNotes.counts.missing);
+  assert.throws(() => run("draft-tokens.mjs", ["--evidence", EVIDENCE, "--out", path.join(work, "draft-bad"), "--id", "acme", "--profile", "marketing"], { stdio: "pipe" }));
 });
 
 test("起草：根字号偏离 16px 时按 rem 起草并记根字号；各页根字号不一致要警告", () => {
@@ -156,7 +178,8 @@ test("脚手架（项目模式）：目录、文档占位、拒绝覆盖、--tok
   assert.doesNotMatch(design, /#[0-9A-Fa-f]{6}\b/, "DESIGN.md 不写 hex");
   const audit = readFileSync(path.join(projectDir, "design-system", "AUDIT.md"), "utf8");
   assert.match(audit, /### 推断角色清单[\s\S]*`color\.action\.primary-active`/);
-  assert.match(audit, /### 缺口清单[\s\S]*`color\.bg\.overlay`/);
+  assert.match(audit, /### 必须处理的缺口[\s\S]*`color\.bg\.overlay`/);
+  assert.match(audit, /系统类型：产品 UI/);
   const theme = readFileSync(path.join(projectDir, "design-system", "themes", "dark", "THEME.md"), "utf8");
   assert.match(theme, /激活方式：`:root\.dark`/);
   assert.match(theme, /`color\.text\.muted`|`color\.text\.link`/, "THEME.md 列出未覆写的随模式角色");
