@@ -2,7 +2,7 @@
 
 版本 {{VERSION}} · 由 [web-to-design-system](https://github.com/WYCM9527/skills/tree/main/web-to-design-system) 从 {{SOURCES}} 实测提炼（{{DATE}}）· 纯数据包：本目录即分发单元（文件夹直接下载，或发布为 npm 包 `{{NPM}}`），身份文件 `design-system.json`，接入 / 更新由 [design-system-adopter](https://github.com/WYCM9527/Design-System/tree/main/design-system-adopter) skill 驱动 · 变更见 [CHANGELOG.md](CHANGELOG.md)
 
-适用类型：**{{PROFILE_LABEL}}**——{{PROFILE_ZH}}。
+适用类型：**{{TYPE_LABEL}}**——{{TYPE_DESCRIPTION}}。
 
 > **这是从网站提炼出来的起点，不是定稿。** `tokens/semantic.tokens.json` 里 `$description` 以 `[推断]` 开头的角色是按规则补的默认值，`design-system/AUDIT.md` 列出了全部推断与缺口；接入项目前逐条确认，`DESIGN.md` 里写着「待填写」的段落必须补齐。发布前跑 `publish-check.mjs --seed <本目录>`。
 

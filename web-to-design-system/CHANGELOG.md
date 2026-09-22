@@ -7,6 +7,17 @@
 - **默认 `description` 不该是用户决策**：`scaffold-system.mjs` 不传 `--description` 时写成「<名称>：从 <URL> 实测提炼的设计系统。」，这句会落到根 README 表格「定位」列、`design-system.json`、`<id>/README.md`、`package.json`。改为从 `draft-notes.json` 拼一句能直接上表的定位（来源域名 · 主操作色与色族 · 有无另一模式 · 栈与桥接状态），并把 SKILL「6. 发布到 Design-System 仓库」里「写进仓库前问用户 `--description`」改成「Agent 按证据起草定位，给用户过目即可」。
 - **npm 发布不在 skill 里决定**：提炼出的种子继续默认不带 `publishConfig`（只走文件夹 / Release 直链渠道，adopter 接入与按 tag 升级都不依赖 registry）；何时值得上 npm 的判据记在 Design-System 仓库 GUIDE 8c 第 8 步，`release.yml` 已会自动识别 `publishConfig`。
 
+## 0.6.0 — 2026-09-22
+
+系统类型从写死的三个改成**可定义的数据**：用户要的是「可以定义类型，比如通用网站、中后台，等等」，不是挑一个我给的枚举。
+
+- **类型 = 目录**：`<类型目录>/<id>/type.json` + `quick / visual / components / recipes.md`（DESIGN 四段配方词汇）。字段：`id` / `label` / `description` / `aliases` / `extends` / `archetype` / `roles.required` / `roles.inferable` / `bridges` / `pages` / `board`；角色集合用 `tiers`（重置）+ `include` / `exclude`（支持 `*` 通配）在父集合上增删；md 缺文件沿 `extends` 链回退。新 `scripts/lib/types.mjs`，`roles.mjs` 不再写死类型。
+- **三层来源**：skill 内置 `assets/types/`（`website` 通用网站，别名 `brand` · `product` 产品应用 · `admin` 中后台）→ Design-System 仓库根 `system-types/`（自动发现，公司自定义类型放这里，同 id 覆盖内置）→ `--types-dir <dir>[,<dir>]`。
+- **CLI**：`draft-tokens` / `scaffold-system` / `render-token-board` 改用 `--type <id 或别名>`（`--profile` 仍认）+ `--types-dir`；新 `list-types.mjs`（`--roles <id>` 列该类型必须处理 / 可推断的角色）；`publish-check` 软检查身份文件的类型能否解析。身份文件字段改名 `type`（adopter schema 同步，自由字符串）。
+- **自动推断只落到原型**（website / product / admin），自定义类型要显式传；DESIGN 模板的「禁用态」「侧栏」条目改为按类型是否要求 `opacity.disabled` / `layout.sidebar.width` 决定，不再按 id 硬编码。
+- 文档：新 `references/system-types.md`（怎么定义一个类型，附文档站示例）；SKILL 预检第 3 问改为「`list-types.mjs` 列出来让用户选，没有就定义一个」；Design-System 仓库加 `system-types/README.md`，GUIDE 8c 第 1 步「定类型」。
+- OXYZ3 种子改为 `website`（内容不变）。
+
 ## 0.5.0 — 2026-09-22
 
 纠正一个前提：提炼出来的设计系统不都是给中后台用的。此前词表的 core 层混着只有产品 UI 才有的角色、「core 缺口必须处理」的规则、DESIGN 模板的产品词汇（状态胶囊 / 表格 / 分页 / 骨架屏）、以及对种子默认引导拷 Element Plus / shadcn 桥接，合起来会把一个品牌官网写成中后台底座（OXYZ3 第一版就是这样：借 Citrine 值补了 93 个角色、拷了 21 个桥接文件）。同一站点重跑会得到不同的角色集合与文档，所以是 minor。

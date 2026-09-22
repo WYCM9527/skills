@@ -1,0 +1,57 @@
+{
+  "id": "website",
+  "label": "通用网站",
+  "aliases": [
+    "brand"
+  ],
+  "description": "官网、活动页、作品集、博客、内容站：以读和看为主，交互只有导航、链接、CTA 与少量表单",
+  "archetype": "website",
+  "roles": {
+    "required": {
+      "tiers": [
+        "core"
+      ],
+      "exclude": [
+        "color.status.*",
+        "color.action.danger*",
+        "color.text.on-danger",
+        "color.text.danger",
+        "color.bg.input",
+        "color.border.input",
+        "color.text.placeholder",
+        "color.bg.elevated",
+        "control.height.sm",
+        "control.height.lg",
+        "layer.dropdown",
+        "layer.toast",
+        "opacity.disabled"
+      ]
+    },
+    "inferable": {
+      "include": [
+        "color.bg.brand",
+        "color.text.brand",
+        "color.text.on-brand",
+        "color.brand.indicator",
+        "color.icon.brand",
+        "color.border.current",
+        "font.family.heading",
+        "text.display.*",
+        "text.hero.*",
+        "text.paragraph.line-height",
+        "text.weight.brand",
+        "text.tracking.caps",
+        "text.link.decoration",
+        "layout.container.max-width",
+        "layout.root.font-size",
+        "elevation.popover.*",
+        "elevation.modal.*",
+        "motion.easing.enter",
+        "motion.easing.exit"
+      ]
+    }
+  },
+  "bridges": false,
+  "pages": "首页（hero、导航、CTA、页脚）+ 一个内容页（正文、标题阶梯、图文卡片、链接）+ 联系 / 订阅页（输入框、焦点）；有作品 / 文章列表再加一页",
+  "board": "website"
+}

@@ -2,7 +2,7 @@
 name: web-to-design-system
 description: 从任意网站（一个或多个 URL）用浏览器实测证据提炼一套按本仓库 token 规范组织的设计系统种子——DTCG 2025.10 CSS Profile 的 primitives / semantic token、与 Citrine 对齐的语义角色词表、Core + Theme delta、design-system/ 目录、DESIGN.md（只写意图）与 AUDIT.md（观察 / 推断 / 缺口 / 对比度），能过 design-system-steward validate / build / guard，可选打成带 design-system.json 的种子包供 design-system-adopter 接入。用户说「把这个网站做成设计系统 / 提炼 XX 网站的 token / 按我们的规范抓一套设计系统 / web to design system / 参考这个站起一套规范」时使用。不用于：接入已发布的设计系统（design-system-adopter）、治理项目自身规范或迁移存量（design-system-steward）、只想要一份自由格式 DESIGN.md（原 web-to-design-md）。
 metadata:
-  version: "0.5.0"
+  version: "0.6.0"
 ---
 
 # Web to Design System
@@ -13,7 +13,7 @@ metadata:
 
 - **取证**：网站的每个可见元素都在说自己用了什么颜色 / 字号 / 间距，脚本把这些话按用途、面积、文字量、所落底色记账。
 - **起草**：颜色按色族 × 明度分档起名（Primitive），再按角色词表说「这个颜色是主按钮」（Semantic）。机器只做机械的部分，每条别名都写明是 `[观察]` 还是 `[推断]`。
-- **系统类型**：这套规范给什么类型的产品用——品牌 / 内容站（brand）、产品 UI（product）、中后台（admin）。它决定哪些角色必须处理、DESIGN 用哪套配方词汇、要不要组件库桥接；品牌官网不会被写成中后台底座。
+- **系统类型**：这套规范给什么类型的产品用。类型是可定义的数据（[references/system-types.md](references/system-types.md)）：内置 `website` 通用网站、`product` 产品应用、`admin` 中后台，公司可在 Design-System 仓库 `system-types/<id>/` 加自己的（文档站、电商、H5…）。它决定哪些角色必须处理、允许推断哪些、DESIGN 用哪套配方词汇、要不要组件库桥接；一个官网不会被写成中后台底座。
 - **核对**：Agent 逐角色核对草稿、补缺口、纠正判断，写 DESIGN.md 的意图段落——这一步不能省，机器的推断只是有依据的默认值。
 - **写入 + 三绿**：落成 `design-system/`，交给 steward `validate → build → guard`，再跑对比度基线。
 - **可选种子包**：加身份文件与基础桥接，adopter 一条命令接进任何项目。
@@ -24,7 +24,7 @@ metadata:
 | --- | --- | --- |
 | 产物 | 一份自由格式 DESIGN.md + markdown 渲染的预览 | `design-system/`（DTCG token + theme-map + DESIGN / AUDIT / THEME）+ token 驱动的预览板 + 可选种子包 |
 | 颜色 | 散文里的 hex | `color.<族>.<档>` 结构化 sRGB + hex，语义层全是 alias |
-| 用途名 | 每次现编 | 固定词表（160 个角色，与 Citrine 对齐），按系统类型（brand / product / admin）列「必须处理」与「可选」 |
+| 用途名 | 每次现编 | 固定词表（160 个角色，与 Citrine 对齐），按系统类型（可定义：website / product / admin / 公司自定义）列「必须处理」与「可选」 |
 | 暗色 | 文字描述两种模式 | `themes/<id>/` delta + `theme-map.json`，没证据不造 |
 | 验证 | 人读一遍 | steward 三绿 + `check-contrast.mjs` 对比度基线 |
 | 接入 | 复制粘贴 | `ds.mjs init --system <种子> --stack css` |
@@ -47,8 +47,8 @@ node <本 skill>/scripts/check-browser-tooling.mjs <项目目录>
 
 1. **系统 id 与名称**（kebab id 会成为快照目录名与 tag 前缀）。
 2. **落到哪**：项目模式（写进某项目的 `design-system/`，之后由 steward 治理）还是种子模式（独立目录 + `design-system.json`，供多个项目接入）。默认推荐项目模式；要发给别的项目用再选种子。
-3. **系统类型**：这套规范将来给什么用——`brand` 品牌 / 内容站（官网、活动页、作品集、博客、文档站）、`product` 产品 UI（面向用户的应用 / SaaS 前台）、`admin` 中后台（侧栏 + 表格 + 图表）。推荐项按站点本身给（官网 → brand）；用户要拿一个官网的视觉去做产品时才选 product / admin，此时缺口会多、AUDIT 要写清哪些是借的。起草脚本也会从证据推断一遍，两者不一致要说。
-4. **取哪些页面**：按 [references/extraction-checklist.md](references/extraction-checklist.md)「0. 选页面」按系统类型推荐 2～4 个 URL（brand：首页 + 内容页 + 联系 / 表单页；product：首页 + 表单页 + 列表页；admin：再加工作台 / 表格页）。用户只给一个也能跑，缺口会多。
+3. **系统类型**：这套规范将来给什么用。先 `node <本 skill>/scripts/list-types.mjs` 列出当前可用的类型（内置 `website` 通用网站 / `product` 产品应用 / `admin` 中后台 + 仓库 `system-types/` 里公司自定义的），把 label 与一句话原样念给用户选；推荐项按站点本身给（官网 → 通用网站）。用户要拿一个官网的视觉去做产品或后台时才选 product / admin，此时缺口会多、AUDIT 要写清哪些是借的。起草脚本也会从证据推断一遍原型，两者不一致要说。想要的类型不存在 → 按 [references/system-types.md](references/system-types.md) 在仓库 `system-types/<id>/` 定义一个（extends 最接近的内置类型，增删角色），再继续。
+4. **取哪些页面**：按类型定义里的 `pages`（`list-types.mjs` 会打印）推荐 2～4 个 URL，细则见 [references/extraction-checklist.md](references/extraction-checklist.md)「0. 选页面」。用户只给一个也能跑，缺口会多。
 
 ### 1. 取证
 
@@ -65,10 +65,11 @@ node <本 skill>/scripts/extract-evidence.mjs <url> [<url> …] --out /tmp/<id>-
 node <本 skill>/scripts/draft-tokens.mjs --evidence /tmp/<id>-evidence.json --out /tmp/<id>-draft --id <id> --name "<名称>"
 #   [--brand #hex]（品牌族判错时指定） [--min-count 2] [--fill inferred|observed]（observed = 只写有证据的角色）
 #   [--unit auto|px|rem]（默认 auto：根字号偏离 16px 超过 2px 的站点按 rem 起草，见下）
-#   [--profile auto|brand|product|admin]（系统类型；默认 auto 从证据推断——把预检确认的那个显式传进来）
+#   [--type auto|<类型 id 或别名>]（系统类型；默认 auto 从证据推断到 website / product / admin 之一——把预检确认的那个显式传进来）
+#   [--types-dir <dir>[,<dir>]]（自定义类型目录；仓库根的 system-types/ 会自动发现）
 ```
 
-- `--profile` 决定「必须处理的缺口」与「允许推断的角色」：brand 只要基础集（底 / 文字 / 操作 / 边线 / 焦点 / 留白 / 排版 / 布局 / 动效 / 层级），状态色、危险色、选中态、骨架屏、表格、壳层都归「可选」，没证据就不填也不推断；product 要 core 全集；admin 连 shell 一起要。auto 的判据：侧栏 + 表格 → admin；单页 ≥ 4 个输入框 / 选择勾选类控件 / ≥ 3 个状态徽标 / 状态类根变量 / 多页有表格 → product；否则 brand。
+- `--type` 决定「必须处理的缺口」与「允许推断的角色」，口径来自类型定义（[references/system-types.md](references/system-types.md)）：`website` 只要基础集（底 / 文字 / 操作 / 边线 / 焦点 / 留白 / 排版 / 布局 / 动效 / 层级），状态色、危险色、选中态、骨架屏、表格、壳层都归「可选」，没证据就不填也不推断；`product` 要 core 全集；`admin` 连 shell 一起要；自定义类型按它的 type.json。auto 的判据：侧栏 + 表格 → admin；单页 ≥ 4 个输入框 / 选择勾选类控件 / ≥ 3 个状态徽标 / 状态类根变量 / 多页有表格 → product；否则 website。自定义类型不会被自动推断出来，要显式传。
 
 - `--brand` 只定品牌族与品牌角色（`color.brand.indicator` / `bg.brand` / `text.brand`）；`color.action.primary` 仍跟按钮证据走——深底站点主按钮常是白的，品牌色只做焦点，两者要分开。
 - **rem 站点**：`html` 根字号被 JS 设成 `100vw / N` 的站点（1440 宽下 9px 之类），px 值全是「根字号 × rem」的乘积，按 px 起草没有意义。auto 模式会把字号 / 间距 / 圆角 / 控件高 / 阴影 / 布局尺寸换算成 rem，间距按 `spacing.<rem×100>` 命名，根字号记成 `size.root-font` = `layout.root.font-size`；边线宽、断点保留 px。摘要会提醒「接入项目必须复刻根字号规则」。各页根字号不一致会警告——那是站点 resize 脚本的 bug 污染了证据，重新取证。
@@ -129,7 +130,7 @@ node <本 skill>/scripts/publish-check.mjs --seed <仓库根>/<id>/seeds/<id>   
 
 它查：身份文件完整、引用的文件都在；版本号在 `design-system.json` / `package.json` / CHANGELOG / 种子 README / `<id>/README.md` / 根 README 表格六处一致；`upstream.path / repo / tagPrefix` 与真实位置一致；DESIGN.md 无「待填写」；token 无未确认 `[推断]`；AUDIT 贴了对比度报告；steward `validate-system` 通过、`guard` current（dist 已构建）。通过后：提交 → 打 tag `<id>-vX.Y.Z` → 推送，仓库的 `release.yml` 会建 Release（说明取 CHANGELOG 段落，附件 = 种子 npm pack + 纯 CSS 包）。之后每次改 token：升版本、写 CHANGELOG、`--tokens-only` 重同步、`--build`、`publish-check`、再打 tag。
 
-写进仓库前问用户两件事：`--description`（根 README 表格里的一句定位，别让脚本默认的「从 URL 实测提炼」句子上表）；要不要 `--with-citrine-bridges`——**只对 product / admin 提这个问题**：Element Plus / shadcn 桥接带着中后台的组件假设（表格、侧栏、状态胶囊、三档控件高），品牌 / 内容站拷进来只会多出一堆要借值才能填的缺口，纯 CSS 接入（`bridge/base.css`）就够。拷了就要在接入前处理「桥接缺口」。
+写进仓库前问用户两件事：`--description`（根 README 表格里的一句定位，别让脚本默认的「从 URL 实测提炼」句子上表）；要不要 `--with-citrine-bridges`——**只对类型定义 `bridges: true` 的（内置的 product / admin）提这个问题**：Element Plus / shadcn 桥接带着中后台的组件假设（表格、侧栏、状态胶囊、三档控件高），品牌 / 内容站拷进来只会多出一堆要借值才能填的缺口，纯 CSS 接入（`bridge/base.css`）就够。拷了就要在接入前处理「桥接缺口」。
 
 ## 输出契约
 
@@ -179,7 +180,8 @@ node <本 skill>/scripts/publish-check.mjs --seed <仓库根>/<id>/seeds/<id>   
 ## 参考索引
 
 - [references/token-spec.md](references/token-spec.md)：本仓库 token 规范速查（格式 / 分层 / 目录 / 文档分工 / 验收 / 种子包）
-- [references/semantic-roles.md](references/semantic-roles.md)：160 个语义角色（core / extended / shell）、三种系统类型各要哪些、对比度配对
+- [references/semantic-roles.md](references/semantic-roles.md)：160 个语义角色（core / extended / shell）与对比度配对
+- [references/system-types.md](references/system-types.md)：系统类型怎么定义（type.json 字段、四段配方词汇、extends、自定义目录）、内置三类各要哪些角色、自动推断的判据
 - [references/mapping-rules.md](references/mapping-rules.md)：证据 → token 的归档规则、另一模式、缺口怎么补
 - [references/extraction-checklist.md](references/extraction-checklist.md)：选页面、脚本读了什么、什么不取
 - [references/browser-tooling.md](references/browser-tooling.md)：agent-browser 引导与故障

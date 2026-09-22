@@ -1,0 +1,24 @@
+{
+  "id": "admin",
+  "label": "中后台",
+  "description": "侧栏 + 表格 + 图表 + 弹窗尺寸的工作台",
+  "archetype": "admin",
+  "roles": {
+    "required": {
+      "tiers": [
+        "core",
+        "shell"
+      ]
+    },
+    "inferable": {
+      "tiers": [
+        "core",
+        "extended",
+        "shell"
+      ]
+    }
+  },
+  "bridges": true,
+  "pages": "工作台（侧栏 + 顶栏）+ 表格页（表头、选中行、分页、状态胶囊）+ 表单页 + 弹窗 / 抽屉",
+  "board": "admin"
+}

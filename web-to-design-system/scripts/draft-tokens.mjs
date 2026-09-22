@@ -8,7 +8,8 @@
 // 草稿不是终稿：Agent 要按 semantic-roles.md 逐角色核对，补齐缺口、纠正判断，再 scaffold-system.mjs 写入并交给 steward 校验。
 //
 // 用法：node draft-tokens.mjs --evidence <file.json> --out <dir> [--id <system-id>] [--name <名称>] [--min-count 2] [--brand #hex] [--fill inferred|observed]
-//       [--profile auto|brand|product|admin]（系统类型：决定哪些角色必须处理、推断只填哪些；auto 从证据推断，预检时仍要向用户确认）[--unit auto|px|rem]
+//       [--type auto|<类型 id>]（系统类型：决定哪些角色必须处理、推断只填哪些；auto 从证据推断到 website / product / admin 三个原型，预检时仍要向用户确认）
+//       [--types-dir <dir>[,<dir>]]（自定义类型目录；仓库根的 system-types/ 会自动发现）[--unit auto|px|rem]
 
 import path from "node:path";
 
@@ -17,17 +18,18 @@ import { contrastRatio, hueFamily, isDark, parseCssColor, rgbaToOklch, toHex } f
 import { aliasToken, colorToken, cubicBezierToken, dimensionToken, durationToken, fontFamilyToken, fontWeightToken, hasPath, numberToken, setPath, sortTokenTree, stringToken } from "./lib/dtcg.mjs";
 import { desktopProbe, detectBaseUnit, isMonoStack, kindScore, mergeColors, mergeCounts, mergePairs, parseBoxShadow, parseFontFamily, parseTimingFunction } from "./lib/evidence.mjs";
 import { detectBrandFamily, Palette } from "./lib/palette.mjs";
-import { inferableRoles, PROFILE_IDS, PROFILES, requiredRoles, ROLE_BY_PATH, ROLES } from "./lib/roles.mjs";
+import { ROLE_BY_PATH, ROLES } from "./lib/roles.mjs";
+import { inferArchetype, listTypeIds, loadTypes, resolveType } from "./lib/types.mjs";
 
 const OBSERVED = "[观察]";
 const INFERRED = "[推断]";
 
 class Draft {
-  constructor({ allowInferred = true, profile = "product" } = {}) {
+  constructor({ allowInferred = true, type } = {}) {
     this.allowInferred = allowInferred;
-    this.profile = profile;
-    this.required = requiredRoles(profile);
-    this.inferable = inferableRoles(profile);
+    this.type = type;
+    this.required = type.required;
+    this.inferable = type.inferable;
     this.primitives = {};
     this.semantic = {};
     this.theme = {};
@@ -470,11 +472,10 @@ async function main() {
   }
   palette.assignNames();
 
-  // 系统类型：--profile 指定，或从证据推断（侧栏 + 表格 → 中后台；表格 / 成组输入框 / 状态徽标 / 状态类根变量 → 产品 UI；否则品牌 / 内容站）
-  const profileOption = String(options.profile ?? "auto");
-  if (profileOption !== "auto" && !PROFILE_IDS.includes(profileOption)) {
-    throw new Error(`--profile 只接受 ${["auto", ...PROFILE_IDS].join(" / ")}，收到 ${profileOption}`);
-  }
+  // 系统类型：--type 指定（id 或别名），或从证据推断到三个原型之一；类型定义是数据（assets/types、仓库 system-types/、--types-dir）
+  const typeOption = String(options.type ?? options.profile ?? "auto");
+  const typeDirs = String(options["types-dir"] ?? "").split(",").map((dir) => dir.trim()).filter(Boolean).map((dir) => path.resolve(process.cwd(), dir));
+  const registry = await loadTypes({ dirs: typeDirs });
   // 信号按单页取最大值（联系表单在每页页脚出现一次不等于「有表单」）；内容站也会有一张表，表格单独不算产品 UI 的证据
   const perPage = probes.map((probe) => ({
     badges: probe.components?.badges?.length ?? 0,
@@ -483,21 +484,23 @@ async function main() {
     sidebar: Boolean(probe.layout?.sidebar),
     tables: probe.components?.tables?.length ?? 0
   }));
-  const maxInputs = Math.max(0, ...perPage.map((page) => page.inputs));
-  const maxBadges = Math.max(0, ...perPage.map((page) => page.badges));
-  const anyControls = perPage.some((page) => page.controls > 0);
-  const pagesWithTables = perPage.filter((page) => page.tables > 0).length;
-  const hasSidebar = perPage.some((page) => page.sidebar);
-  const statusVars = Object.keys(rootVariables).filter((name) => /success|warning|danger|error|info/i.test(name)).length;
-  const productSignals = [maxInputs >= 4, anyControls, maxBadges >= 3, statusVars >= 4, pagesWithTables >= 2 || (pagesWithTables >= 1 && (maxBadges >= 1 || maxInputs >= 3))].filter(Boolean).length;
-  const inferredProfile = hasSidebar && pagesWithTables >= 1 ? "admin" : productSignals >= 1 ? "product" : "brand";
-  const profileSignals = `侧栏 ${hasSidebar ? "有" : "无"} · 有表格的页面 ${pagesWithTables}/${perPage.length} · 单页最多输入框 ${maxInputs}${anyControls ? "（含选择 / 勾选类控件）" : ""} · 单页最多状态徽标 ${maxBadges} · 状态类根变量 ${statusVars}`;
-  const profile = profileOption === "auto" ? inferredProfile : profileOption;
-  const profileNote = { id: profile, label: PROFILES[profile].label, source: profileOption === "auto" ? "auto" : "user", signals: profileSignals, inferred: inferredProfile };
+  const signals = {
+    anyControls: perPage.some((page) => page.controls > 0),
+    hasSidebar: perPage.some((page) => page.sidebar),
+    maxBadges: Math.max(0, ...perPage.map((page) => page.badges)),
+    maxInputs: Math.max(0, ...perPage.map((page) => page.inputs)),
+    pagesWithTables: perPage.filter((page) => page.tables > 0).length,
+    statusVars: Object.keys(rootVariables).filter((name) => /success|warning|danger|error|info/i.test(name)).length
+  };
+  const inferredArchetype = inferArchetype(signals);
+  const typeSignals = `侧栏 ${signals.hasSidebar ? "有" : "无"} · 有表格的页面 ${signals.pagesWithTables}/${perPage.length} · 单页最多输入框 ${signals.maxInputs}${signals.anyControls ? "（含选择 / 勾选类控件）" : ""} · 单页最多状态徽标 ${signals.maxBadges} · 状态类根变量 ${signals.statusVars}`;
+  const systemType = resolveType(registry, typeOption === "auto" ? inferredArchetype : typeOption);
+  const typeNote = { archetype: systemType.archetype, dir: systemType.source === "custom" ? systemType.dir : null, id: systemType.id, inferred: inferredArchetype, label: systemType.label, signals: typeSignals, source: typeOption === "auto" ? "auto" : "user" };
 
-  const draft = new Draft({ allowInferred: FILL_INFERRED, profile });
-  if (profileOption === "auto") draft.warn(`系统类型按证据推断为「${PROFILES[profile].label}」（${profileSignals}）——预检时要向用户确认；不对就加 --profile brand|product|admin 重跑`);
-  else if (inferredProfile !== profile) draft.warn(`用户指定系统类型「${PROFILES[profile].label}」，但证据更像「${PROFILES[inferredProfile].label}」（${profileSignals}）——按指定的来，缺口会相应变多或变少`);
+  const draft = new Draft({ allowInferred: FILL_INFERRED, type: systemType });
+  for (const warning of registry.warnings) draft.warn(`类型定义：${warning}`);
+  if (typeOption === "auto") draft.warn(`系统类型按证据推断为「${systemType.label}」（${typeSignals}）——预检时要向用户确认；不对就加 --type <id> 重跑，可用类型：${listTypeIds(registry).join(" / ")}`);
+  else if (inferredArchetype !== systemType.archetype) draft.warn(`用户指定系统类型「${systemType.label}」（原型 ${systemType.archetype}），但证据更像「${resolveType(registry, inferredArchetype).label}」（${typeSignals}）——按指定的来，缺口会相应变多或变少`);
   for (const entry of palette.entries.values()) {
     draft.primitive(entry.path, colorToken(entry.rgba, [...entry.descriptions].slice(0, 3).join("；")));
   }
@@ -1104,7 +1107,7 @@ async function main() {
 - 取证时间：${evidence.extractedAt}；桌面视口 ${primary.viewport?.width}×${primary.viewport?.height}；处理节点 ${primary.nodesProcessed}/${primary.nodesTotal}
 - 首屏模式：${initialScheme}${alternate ? `；另一模式：${alternate.key}（${alternate.scheme}）` : "；未取到另一模式（站点无暗 / 亮切换，或切换靠 JS 且未识别）"}
 - 品牌族判定：${brandFamily ?? "无（单色站点）"}${brandDetection.ranking.length ? `（得分：${brandDetection.ranking.map(([family, score]) => `${family} ${score.toFixed(1)}`).join("、")}）` : ""}${brandOverride ? "，用户指定覆盖" : ""}${brandHex ? `；品牌色 \`${brandHex}\`` : ""}${primaryHex && brandHex && primaryHex !== brandHex ? `，主按钮填充 \`${primaryHex}\`（两者不同）` : ""}
-- 系统类型：**${PROFILES[profile].label}**（${profileNote.source === "auto" ? "按证据推断" : "用户指定"}；${profileSignals}）——决定下面哪些缺口必须处理
+- 系统类型：**${systemType.label}**（\`${systemType.id}\`，${typeNote.source === "auto" ? "按证据推断" : "用户指定"}；${typeSignals}）——决定下面哪些缺口必须处理
 - 角色覆盖：观察 ${observedCount} · 推断 ${inferredCount} · 必须处理的缺口 ${draft.notes.missing.length} · 可选未填 ${draft.notes.optional.length}
 
 ## 颜色（按出现次数）
@@ -1178,7 +1181,7 @@ ${roleRows.join("\n")}
 
 ## 必须处理的缺口（${missingRows.length}）
 
-系统类型「${PROFILES[profile].label}」下必须处理的角色：补证据（换页面再取）/ 按规则推断并标注 / 写明本系统不需要。补法见 references/mapping-rules.md「缺口怎么补」。
+系统类型「${systemType.label}」下必须处理的角色：补证据（换页面再取）/ 按规则推断并标注 / 写明本系统不需要。补法见 references/mapping-rules.md「缺口怎么补」。
 
 | 角色 | 层 | 含义 | 找证据的位置 |
 | --- | --- | --- | --- |
@@ -1207,7 +1210,7 @@ ${draft.notes.warnings.map((warning) => `- ${warning}`).join("\n") || "- 无"}
     missing: draft.notes.missing,
     name: systemName,
     optional: draft.notes.optional,
-    profile: profileNote,
+    type: typeNote,
     roles: draft.notes.roles,
     sources: pages.map((page) => ({ title: page.title, url: page.url })),
     themeMap,
@@ -1215,9 +1218,9 @@ ${draft.notes.warnings.map((warning) => `- ${warning}`).join("\n") || "- 无"}
   });
 
   if (options.json === true) {
-    printJson({ counts: { inferred: inferredCount, missing: draft.notes.missing.length, observed: observedCount, optional: draft.notes.optional.length, primitives: countTokens(draft.primitives) }, out: outDir, profile: profileNote, theme: themeId });
+    printJson({ counts: { inferred: inferredCount, missing: draft.notes.missing.length, observed: observedCount, optional: draft.notes.optional.length, primitives: countTokens(draft.primitives) }, out: outDir, theme: themeId, type: typeNote });
   } else {
-    process.stdout.write(`草稿已写到 ${outDir}\n  系统类型 ${PROFILES[profile].label}（${profileNote.source === "auto" ? "按证据推断，预检时向用户确认" : "用户指定"}） · primitives ${countTokens(draft.primitives)} 个 · 语义角色 观察 ${observedCount} / 推断 ${inferredCount} / 必须处理的缺口 ${draft.notes.missing.length} / 可选未填 ${draft.notes.optional.length}${themeId ? ` · Theme ${themeId} delta ${countTokens(themeTokens)} 条` : " · 无 Theme"}\n  先读 audit-summary.md，逐角色核对后再 scaffold-system.mjs 写入。\n`);
+    process.stdout.write(`草稿已写到 ${outDir}\n  系统类型 ${systemType.label}（${systemType.id}，${typeNote.source === "auto" ? "按证据推断，预检时向用户确认" : "用户指定"}） · primitives ${countTokens(draft.primitives)} 个 · 语义角色 观察 ${observedCount} / 推断 ${inferredCount} / 必须处理的缺口 ${draft.notes.missing.length} / 可选未填 ${draft.notes.optional.length}${themeId ? ` · Theme ${themeId} delta ${countTokens(themeTokens)} 条` : " · 无 Theme"}\n  先读 audit-summary.md，逐角色核对后再 scaffold-system.mjs 写入。\n`);
   }
 }
 

@@ -99,7 +99,7 @@ test("起草：颜色分族分档、角色判定、Theme delta、摘要与备注
   assert.match(summary, /品牌族判定：blue/);
   assert.match(summary, /## 必须处理的缺口/);
   assert.match(summary, /## 可选角色未填/);
-  assert.equal(notes.profile.id, "product", "夹具有状态徽标与状态类根变量 → 产品 UI");
+  assert.equal(notes.type.id, "product", "夹具有状态徽标与状态类根变量 → 产品应用");
   assert.ok(notes.counts.observed > 60 && notes.counts.inferred > 10, `观察 ${notes.counts.observed} / 推断 ${notes.counts.inferred}`);
   assert.ok(notes.missing.some((entry) => entry.path === "color.bg.overlay"), "弹窗没打开 → overlay 应在缺口里");
   assert.equal(notes.brand.family, "blue");
@@ -116,24 +116,48 @@ test("起草：--brand 覆盖品牌族，--fill observed 不写推断", () => {
   assert.equal(flat(readJson(path.join(out, "tokens", "primitives.tokens.json")))["color.brand.500"].$value.hex, "#DC2626");
 });
 
-test("起草：系统类型决定必须处理的缺口与可推断的角色——品牌站不发明状态色 / 危险色 / 选中态，中后台连 shell 一起要", () => {
-  const brandOut = path.join(work, "draft-brand");
-  run("draft-tokens.mjs", ["--evidence", EVIDENCE, "--out", brandOut, "--id", "acme", "--profile", "brand"]);
-  const brandNotes = readJson(path.join(brandOut, "draft-notes.json"));
-  assert.equal(brandNotes.profile.id, "brand");
-  assert.equal(brandNotes.profile.source, "user");
-  assert.ok(brandNotes.warnings.some((warning) => warning.includes("证据更像")), "用户指定与证据不一致要提醒");
-  const brandInferred = Object.entries(brandNotes.roles).filter(([, role]) => role.source === "inferred").map(([rolePath]) => rolePath);
-  assert.ok(!brandInferred.some((rolePath) => /^color\.status\.|danger|selected|skeleton|readonly|opacity\.disabled|layer\.(dropdown|toast)/.test(rolePath)), `品牌站不推断产品交互角色：${brandInferred.join(",")}`);
-  assert.equal(brandNotes.roles["color.status.success"]?.source, "observed", "有证据的状态色照样写（观察不受类型限制）");
-  assert.ok(!brandNotes.missing.some((entry) => entry.path.startsWith("color.status.") || entry.path.includes("danger")), "状态 / 危险色不在品牌站的必须处理清单里");
-  assert.ok(brandNotes.optional.some((entry) => entry.path === "color.status.neutral" && entry.tier === "core"), "产品专属的 core 角色对品牌站是可选，不再推断");
+test("起草：系统类型是数据——website 不发明状态色 / 危险色 / 选中态，admin 连 shell 一起要，别名与自定义类型目录都认", () => {
+  const brandOut = path.join(work, "draft-website");
+  run("draft-tokens.mjs", ["--evidence", EVIDENCE, "--out", brandOut, "--id", "acme", "--type", "brand"]); // brand 是 website 的别名
+  const websiteNotes = readJson(path.join(brandOut, "draft-notes.json"));
+  assert.equal(websiteNotes.type.id, "website");
+  assert.equal(websiteNotes.type.source, "user");
+  assert.ok(websiteNotes.warnings.some((warning) => warning.includes("证据更像")), "用户指定与证据不一致要提醒");
+  const inferred = Object.entries(websiteNotes.roles).filter(([, role]) => role.source === "inferred").map(([rolePath]) => rolePath);
+  assert.ok(!inferred.some((rolePath) => /^color\.status\.|danger|selected|skeleton|readonly|opacity\.disabled|layer\.(dropdown|toast)/.test(rolePath)), `通用网站不推断产品交互角色：${inferred.join(",")}`);
+  assert.equal(websiteNotes.roles["color.status.success"]?.source, "observed", "有证据的状态色照样写（观察不受类型限制）");
+  assert.ok(!websiteNotes.missing.some((entry) => entry.path.startsWith("color.status.") || entry.path.includes("danger")), "状态 / 危险色不在通用网站的必须处理清单里");
+  assert.ok(websiteNotes.optional.some((entry) => entry.path === "color.status.neutral" && entry.tier === "core"), "产品专属的 core 角色对通用网站是可选，不再推断");
   const adminOut = path.join(work, "draft-admin");
-  run("draft-tokens.mjs", ["--evidence", EVIDENCE, "--out", adminOut, "--id", "acme", "--profile", "admin"]);
+  run("draft-tokens.mjs", ["--evidence", EVIDENCE, "--out", adminOut, "--id", "acme", "--type", "admin"]);
   const adminNotes = readJson(path.join(adminOut, "draft-notes.json"));
   assert.ok(adminNotes.missing.some((entry) => entry.tier === "shell"), "中后台：shell 层缺口进必须处理清单");
-  assert.ok(adminNotes.counts.missing > brandNotes.counts.missing);
-  assert.throws(() => run("draft-tokens.mjs", ["--evidence", EVIDENCE, "--out", path.join(work, "draft-bad"), "--id", "acme", "--profile", "marketing"], { stdio: "pipe" }));
+  assert.ok(adminNotes.counts.missing > websiteNotes.counts.missing);
+  assert.throws(() => run("draft-tokens.mjs", ["--evidence", EVIDENCE, "--out", path.join(work, "draft-bad"), "--id", "acme", "--type", "marketing"], { stdio: "pipe" }), /系统类型 marketing 不存在/);
+
+  // 自定义类型：extends website，多要两个角色、少要一个，配方词汇只覆盖 quick.md（其余回退到 website）
+  const typesDir = path.join(work, "types");
+  mkdirSync(path.join(typesDir, "docs"), { recursive: true });
+  writeFileSync(path.join(typesDir, "docs", "type.json"), JSON.stringify({ id: "docs", label: "文档站", description: "产品文档 / 帮助中心", extends: "website", aliases: ["help-center"], roles: { required: { include: ["font.family.code", "text.numeric.variant"], exclude: ["color.bg.overlay"] } }, pages: "首页 + 一篇长文档 + 搜索结果页" }));
+  writeFileSync(path.join(typesDir, "docs", "quick.md"), "1. 代码块用 `font.family.code`。\n");
+  const listed = JSON.parse(run("list-types.mjs", ["--types-dir", typesDir, "--json"]));
+  const docs = listed.types.find((type) => type.id === "docs");
+  assert.ok(docs && docs.source === "custom" && docs.archetype === "website" && docs.required === 55 + 2 - 1, JSON.stringify(docs));
+  assert.equal(listed.aliases["help-center"], "docs");
+  const docsOut = path.join(work, "draft-docs");
+  run("draft-tokens.mjs", ["--evidence", EVIDENCE, "--out", docsOut, "--id", "acme", "--type", "help-center", "--types-dir", typesDir]);
+  const docsNotes = readJson(path.join(docsOut, "draft-notes.json"));
+  assert.equal(docsNotes.type.id, "docs");
+  assert.ok(docsNotes.missing.some((entry) => entry.path === "text.numeric.variant"), "自定义类型多要的角色进必须处理清单");
+  assert.ok(docsNotes.roles["font.family.code"] && !docsNotes.missing.some((entry) => entry.path === "font.family.code"), "夹具有等宽字体证据 → 观察项，不算缺口");
+  assert.ok(!docsNotes.missing.some((entry) => entry.path === "color.bg.overlay"), "exclude 掉的角色不再必须");
+  const docsSeed = path.join(work, "seed-docs");
+  run("scaffold-system.mjs", ["--from", docsOut, "--seed", docsSeed, "--id", "acme", "--name", "Acme 文档", "--repo", "acme/design", "--path", "acme/seeds/docs", "--npm", "@acme/docs", "--types-dir", typesDir]);
+  const docsDesign = readFileSync(path.join(docsSeed, "design-system", "DESIGN.md"), "utf8");
+  assert.match(docsDesign, /适用类型：\*\*文档站\*\*（`docs`）/);
+  assert.match(docsDesign, /代码块用 `font\.family\.code`/, "自定义 quick.md 生效");
+  assert.match(docsDesign, /全屏菜单 \/ 遮罩/, "没覆盖的段落（配方表）回退到 website 的");
+  assert.equal(readJson(path.join(docsSeed, "design-system.json")).type, "docs");
 });
 
 test("起草：根字号偏离 16px 时按 rem 起草并记根字号；各页根字号不一致要警告", () => {
@@ -179,7 +203,7 @@ test("脚手架（项目模式）：目录、文档占位、拒绝覆盖、--tok
   const audit = readFileSync(path.join(projectDir, "design-system", "AUDIT.md"), "utf8");
   assert.match(audit, /### 推断角色清单[\s\S]*`color\.action\.primary-active`/);
   assert.match(audit, /### 必须处理的缺口[\s\S]*`color\.bg\.overlay`/);
-  assert.match(audit, /系统类型：产品 UI/);
+  assert.match(audit, /系统类型：产品应用（`product`/);
   const theme = readFileSync(path.join(projectDir, "design-system", "themes", "dark", "THEME.md"), "utf8");
   assert.match(theme, /激活方式：`:root\.dark`/);
   assert.match(theme, /`color\.text\.muted`|`color\.text\.link`/, "THEME.md 列出未覆写的随模式角色");

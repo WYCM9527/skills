@@ -12,7 +12,8 @@
 // 用法：node scaffold-system.mjs --from <draftDir> (--project <dir> | --seed <dir> | --into-repo <repoRoot>) --id <id> --name <名称>
 //       [--seed-name <目录名=id>] [--version 0.1.0] [--description "…"] [--repo owner/repo] [--path <包子路径>] [--npm @scope/id]
 //       [--with-citrine-bridges <dir>] [--build] [--force] [--tokens-only] [--json]
-//       [--profile brand|product|admin]（系统类型，默认取草稿 draft-notes.json 里的判定；决定 DESIGN 用哪套配方词汇、AUDIT 的缺口口径、身份文件的 profile 字段）
+//       [--type <类型 id>]（系统类型，默认取草稿 draft-notes.json 里的判定；决定 DESIGN 用哪套配方词汇、AUDIT 的缺口口径、身份文件的 type 字段）
+//       [--types-dir <dir>[,<dir>]]（自定义类型目录；目标仓库根的 system-types/ 会自动发现）
 
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -23,7 +24,8 @@ import { fileExists, parseArgs, printJson, readJson, reportError, requireAbsolut
 import { copyBridges, missingBridgeVariables, scanBridgeVariables } from "./lib/bridges.mjs";
 import { cssVariableName, flattenTokens } from "./lib/dtcg.mjs";
 import { findRepoRoot, gitRemoteRepo, upsertReadmeRow } from "./lib/repo.mjs";
-import { buildMigrationRoles, PROFILE_IDS, PROFILES, ROLES } from "./lib/roles.mjs";
+import { buildMigrationRoles, ROLES } from "./lib/roles.mjs";
+import { loadTypes, resolveType, typeBlocks } from "./lib/types.mjs";
 import { locateSteward, stewardCommands } from "./lib/steward.mjs";
 
 const assetsRoot = path.join(skillRoot, "assets");
@@ -183,35 +185,35 @@ async function main() {
     }
   }
 
-  // —— 系统类型：--profile > draft-notes.json > product ——
-  const profileOption = options.profile === undefined ? null : String(options.profile);
-  if (profileOption && !PROFILE_IDS.includes(profileOption)) throw new Error(`--profile 只接受 ${PROFILE_IDS.join(" / ")}，收到 ${profileOption}`);
-  const profile = profileOption ?? (PROFILE_IDS.includes(notes?.profile?.id) ? notes.profile.id : "product");
-  const profileMeta = PROFILES[profile];
-  if (typeof options["with-citrine-bridges"] === "string" && !profileMeta.bridges) {
-    process.stderr.write(`注意：系统类型是「${profileMeta.label}」，通常不需要 Element Plus / shadcn 组件库桥接（它们带着中后台的组件假设）；已按要求拷入，AUDIT「桥接缺口」里写清为什么需要。\n`);
+  // —— 系统类型：--type > 草稿 draft-notes.json > product；定义来自内置 assets/types、目标仓库 system-types/、--types-dir ——
+  const typeDirs = String(options["types-dir"] ?? "").split(",").map((dir) => dir.trim()).filter(Boolean).map((dir) => path.resolve(process.cwd(), dir));
+  const registry = await loadTypes({ dirs: typeDirs, startDir: targetRoot });
+  const typeOption = options.type ?? options.profile;
+  const systemType = resolveType(registry, typeOption !== undefined ? String(typeOption) : notes?.type?.id ?? notes?.profile?.id ?? "product");
+  if (typeof options["with-citrine-bridges"] === "string" && !systemType.bridges) {
+    process.stderr.write(`注意：系统类型是「${systemType.label}」，通常不需要 Element Plus / shadcn 组件库桥接（它们带着中后台的组件假设）；已按要求拷入，AUDIT「桥接缺口」里写清为什么需要。\n`);
   }
 
   // —— 文档层 ——
   if (!tokensOnly) {
-    const profileBlock = (file) => readAsset(path.join("profiles", profile, file)).then((text) => text.trim());
-    const [quickRules, visualRules, componentRules, recipes] = await Promise.all(["quick.md", "visual.md", "components.md", "recipes.md"].map(profileBlock));
+    const blocks = await typeBlocks(systemType);
     const themeNote = themes.length
       ? themes.map((theme) => `- 本系统登记了 Theme \`${theme.id}\`（激活：${describeActivation(themeMap, theme.id)}；默认 \`${themeMap.defaultTheme}\`），delta 见 \`themes/${theme.id}/\`；运行时所有者待接入方确认。`).join("\n")
       : "- 本次取证未发现另一模式（或切换靠 JS 未被识别）。不要从现有颜色自动反相造暗色；需要时先走提案。";
     await put("design-system/DESIGN.md", fill(await readAsset("DESIGN.template.md"), {
-      A11Y_EXTRA: profile === "brand" ? "" : "- 禁用态用 `opacity.disabled` 统一表达，不另造一套灰。\n",
-      COMPONENT_RULES: componentRules,
+      A11Y_EXTRA: systemType.required.has("opacity.disabled") ? "- 禁用态用 `opacity.disabled` 统一表达，不另造一套灰。\n" : "",
+      COMPONENT_RULES: blocks.components,
       DATE: date,
-      LAYOUT_SHELL: profile === "admin" ? " / 侧栏 `layout.sidebar.width`" : "",
+      LAYOUT_SHELL: systemType.required.has("layout.sidebar.width") ? " / 侧栏 `layout.sidebar.width`" : "",
       NAME: name,
-      PROFILE_LABEL: profileMeta.label,
-      PROFILE_ZH: profileMeta.zh,
-      QUICK_RULES: quickRules,
-      RECIPES: recipes,
+      QUICK_RULES: blocks.quick,
+      RECIPES: blocks.recipes,
       SOURCES: sources,
       THEME_NOTE: themeNote,
-      VISUAL_RULES: visualRules
+      TYPE_DESCRIPTION: systemType.description,
+      TYPE_ID: systemType.id,
+      TYPE_LABEL: systemType.label,
+      VISUAL_RULES: blocks.visual
     }));
 
     const inferred = Object.entries(notes?.roles ?? {}).filter(([, role]) => role.source === "inferred");
@@ -243,7 +245,7 @@ async function main() {
       OPTIONAL_LIST: notes?.optional?.length
         ? Object.entries(notes.optional.reduce((groups, entry) => ((groups[entry.group] ??= []).push(`\`${entry.path}\``), groups), {})).map(([group, list]) => `- ${group}：${list.join("、")}`).join("\n")
         : "- （无）",
-      PROFILE: `${profileMeta.label}（${notes?.profile?.source === "user" ? "用户指定" : notes?.profile ? "按证据推断，待用户确认" : "未记录，按产品 UI 处理"}${notes?.profile?.signals ? `；${notes.profile.signals}` : ""}）`,
+      TYPE: `${systemType.label}（\`${systemType.id}\`${systemType.source === "custom" ? "，自定义类型" : ""}；${(notes?.type ?? notes?.profile)?.source === "user" ? "用户指定" : notes?.type ?? notes?.profile ? "按证据推断，待用户确认" : "草稿未记录，按产品应用处理"}${(notes?.type ?? notes?.profile)?.signals ? `；${(notes.type ?? notes.profile).signals}` : ""}）`,
       OBSERVED: String(notes?.counts?.observed ?? 0),
       SOURCES: sources,
       THEME_LINE: themes.length
@@ -277,7 +279,7 @@ async function main() {
     const stackIds = ["css", ...Object.keys(extraStacks)];
     const seedValues = { DATE: date, DESCRIPTION: description, ID: id, NAME: name, NPM: npm, PATH: upstreamPath, REPO: repoSlug, SOURCES: sources, VERSION: version };
     identity = JSON.parse(fill(await readAsset("seed/design-system.template.json"), seedValues));
-    identity.profile = profile;
+    identity.type = systemType.id;
     identity.stacks = { ...identity.stacks, ...extraStacks };
     if (Object.keys(extraExport).length) {
       identity.export.optional = extraExport;
@@ -295,7 +297,7 @@ async function main() {
     const bridgeTree = bridgeReport
       ? `bridge/                             # base.css（纯 CSS 栈）+ 从 ${bridgeReport.sourceId} 拷入的 ${Object.keys(extraStacks).join(" / ")} 桥接、recipes、配方组件（起点，见 AUDIT「桥接缺口」）\n`
       : "bridge/base.css                     # 基础桥接（纯 CSS 栈）：body / 标题 / 链接 / 表单控件 / 焦点 / 减少动态效果，只引用变量\n";
-    await put("README.md", fill(await readAsset("seed/README.template.md"), { ...seedValues, BRIDGE_TREE: bridgeTree, DEFAULT_STACK: stackIds[0], PROFILE_LABEL: profileMeta.label, PROFILE_ZH: profileMeta.zh, STACK_LIST: stackIds.map((stackId) => `\`${stackId}\`（${identity.stacks[stackId].label}）`).join("、"), THEME_TREE: themeTree }));
+    await put("README.md", fill(await readAsset("seed/README.template.md"), { ...seedValues, BRIDGE_TREE: bridgeTree, DEFAULT_STACK: stackIds[0], TYPE_DESCRIPTION: systemType.description, TYPE_LABEL: systemType.label, STACK_LIST: stackIds.map((stackId) => `\`${stackId}\`（${identity.stacks[stackId].label}）`).join("、"), THEME_TREE: themeTree }));
     await put("CHANGELOG.md", `# Changelog\n\n版本策略：patch 只改描述与文档；minor 新增或修改 token（视觉会变、名字不变，条目里写清肉眼可见的影响）；major 才改名或删除 token。\n\n## ${version} — ${date}\n\n- 由 web-to-design-system 从 ${sources} 实测提炼的初版：primitives ${notes?.counts?.primitives ?? "?"} 个，语义角色 观察 ${notes?.counts?.observed ?? "?"} / 推断 ${notes?.counts?.inferred ?? "?"}${themes.length ? `，Theme ${themes.map((theme) => theme.id).join(" / ")}` : "，无 Theme"}${bridgeReport ? `；桥接从 ${bridgeReport.sourceId} ${bridgeReport.sourceVersion} 拷入（${bridgeReport.missing.length} 个变量待补 / 待删）` : ""}。推断项与缺口见 design-system/AUDIT.md。\n`);
     const pkg = JSON.parse(fill(await readAsset("seed/package.template.json"), seedValues));
     if (bridgeReport) {
@@ -363,7 +365,7 @@ async function main() {
   const designPath = path.join(systemRoot, "DESIGN.md");
   const pending = (await fileExists(designPath)) ? ((await readFile(designPath, "utf8")).match(/待填写|待确认/g) ?? []).length : 0;
   const commands = stewardCommands(targetRoot, steward);
-  const result = { build: build ? { ok: build.ok } : null, bridge: bridgeReport ? { copied: bridgeReport.copied, missing: bridgeReport.missing.map((entry) => entry.name) } : null, identity: identity ? { id, npm, path: upstreamPath, profile, repo: repoSlug, stacks: Object.keys(identity.stacks) } : null, mode, pending, profile, repoWrites, steward: steward?.dir ?? null, target: targetRoot, themes: themes.map((theme) => theme.id), written };
+  const result = { type: systemType.id, build: build ? { ok: build.ok } : null, bridge: bridgeReport ? { copied: bridgeReport.copied, missing: bridgeReport.missing.map((entry) => entry.name) } : null, identity: identity ? { id, npm, path: upstreamPath, repo: repoSlug, stacks: Object.keys(identity.stacks), type: systemType.id } : null, mode, pending, repoWrites, steward: steward?.dir ?? null, target: targetRoot, themes: themes.map((theme) => theme.id), written };
   if (options.json === true) {
     printJson(result);
     if (build && !build.ok) process.exitCode = 1;
@@ -371,7 +373,7 @@ async function main() {
   }
   const modeLabel = { "into-repo": "发布模式", project: "项目模式", seed: "种子模式" }[mode];
   process.stdout.write(`已写入 ${targetRoot}（${modeLabel}${tokensOnly ? "，仅 token 层" : ""}）：${written.length} 个文件\n`);
-  if (identity) process.stdout.write(`身份文件：id ${id} · 类型 ${profileMeta.label} · upstream ${repoSlug} @ ${upstreamPath} · tag 前缀 ${id}-v · npm ${npm} · 栈 ${Object.keys(identity.stacks).join(" / ")}\n`);
+  if (identity) process.stdout.write(`身份文件：id ${id} · 类型 ${systemType.label}（${systemType.id}） · upstream ${repoSlug} @ ${upstreamPath} · tag 前缀 ${id}-v · npm ${npm} · 栈 ${Object.keys(identity.stacks).join(" / ")}\n`);
   if (bridgeReport) process.stdout.write(`桥接：从 ${bridgeReport.sourceId} ${bridgeReport.sourceVersion} 拷入 ${bridgeReport.copied} 个文件；引用了本系统没有的变量 ${bridgeReport.missing.length} 个${bridgeReport.missing.length ? `（如 ${bridgeReport.missing.slice(0, 6).map((entry) => `--${entry.name}`).join("、")}），已写进 AUDIT.md「桥接缺口」` : ""}\n`);
   if (repoWrites.length) process.stdout.write(`仓库：${repoWrites.join("；")}\n`);
   if (build) process.stdout.write(build.ok ? `构建：dist/ 已由 steward 生成\n` : `构建失败：${build.transcript}\n`);

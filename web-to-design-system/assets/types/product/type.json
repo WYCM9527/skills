@@ -1,0 +1,22 @@
+{
+  "id": "product",
+  "label": "产品应用",
+  "description": "面向用户的应用 / SaaS 前台：表单、列表、弹窗、状态反馈齐全，但没有后台壳层",
+  "archetype": "product",
+  "roles": {
+    "required": {
+      "tiers": [
+        "core"
+      ]
+    },
+    "inferable": {
+      "tiers": [
+        "core",
+        "extended"
+      ]
+    }
+  },
+  "bridges": true,
+  "pages": "首页 / 落地页 + 表单页（登录 / 设置）+ 列表页；能点开弹窗就点开再取",
+  "board": "product"
+}

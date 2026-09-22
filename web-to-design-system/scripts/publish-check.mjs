@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs, printJson, reportError, requireAbsolutePath, requireStringOption } from "./lib/args.mjs";
 import { findRepoRoot, gitRemoteRepo, readmeRowVersion } from "./lib/repo.mjs";
 import { locateSteward } from "./lib/steward.mjs";
+import { loadTypes } from "./lib/types.mjs";
 
 const read = (file) => readFileSync(file, "utf8");
 const readJsonSafe = (file) => {
@@ -61,6 +62,13 @@ async function main() {
   for (const [group, files] of Object.entries(identity.export?.optional ?? {})) for (const file of files) expectFile(file, `export.optional.${group}`);
   for (const [key, file] of Object.entries(identity.docs ?? {})) expectFile(file, `docs.${key}`);
   check("身份文件引用的文件都存在", missingFiles.length === 0, missingFiles.join("；"));
+  {
+    // 系统类型：身份文件的 type 要能在内置 / 仓库 system-types / --types-dir 里找到（adopter 只当元数据，但文档口径靠它）
+    const registry = await loadTypes({ dirs: String(options["types-dir"] ?? "").split(",").map((dir) => dir.trim()).filter(Boolean), startDir: seedRoot });
+    const typeId = identity.type ?? identity.profile ?? null;
+    const known = typeId ? registry.types.has(typeId) || registry.aliases.has(typeId) : false;
+    warn("身份文件写了系统类型且类型定义存在", known, typeId ? `${typeId}${known ? "" : `（可用：${[...registry.types.keys()].join(" / ")}）`}` : "缺 type 字段（旧种子按 product 处理）");
+  }
 
   // —— 版本一致 ——
   const pkg = readJsonSafe(path.join(seedRoot, "package.json"));

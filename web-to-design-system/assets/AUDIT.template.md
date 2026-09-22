@@ -9,7 +9,7 @@
 - 取证时间：{{DATE}}
 - 证据文件：{{EVIDENCE}}（系统临时目录，不随项目提交；需要复核时重跑 `extract-evidence.mjs`）
 - 确认的权威来源：本目录 `tokens/*.tokens.json`（接入后旧站点的 CSS 只作参考，不双写）
-- 系统类型：{{PROFILE}}——决定哪些角色必须处理、DESIGN 用哪套配方词汇、要不要组件库桥接
+- 系统类型：{{TYPE}}——决定哪些角色必须处理、DESIGN 用哪套配方词汇、要不要组件库桥接
 - 品牌族判定：{{BRAND}}
 - 首屏模式：{{INITIAL_SCHEME}}；{{THEME_LINE}}
 

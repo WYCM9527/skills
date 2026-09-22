@@ -5,7 +5,7 @@
 // 所以用 --css 指向 dist/index.css 时看到的就是构建结果；不带 --css 时用内联解析值兜底（构建前也能看）。
 //
 // 用法：node render-token-board.mjs --system <design-system 目录> --out <file.html> [--name <名称>] [--css <相对 out 的 dist/index.css 路径>]
-//       [--profile brand|product|admin]（组件样例按系统类型取舍；默认读 <system>/../design-system.json 的 profile，没有就按 product）
+//       [--type <类型 id>] [--types-dir <dir>]（组件样例按系统类型的 board 套件取舍；默认读 <system>/../design-system.json 的 type，没有就按 product）
 
 import path from "node:path";
 
@@ -14,6 +14,7 @@ import { readFile } from "node:fs/promises";
 import { parseArgs, reportError, requireAbsolutePath, requireStringOption, writeText } from "./lib/args.mjs";
 import { aliasTarget, cssValueOf, cssVariableName } from "./lib/dtcg.mjs";
 import { ROLE_BY_PATH, ROLE_GROUPS } from "./lib/roles.mjs";
+import { loadTypes, resolveType } from "./lib/types.mjs";
 import { allPaths, loadSystem, resolveIn } from "./lib/system.mjs";
 
 const escape = (text) => String(text ?? "").replace(/[&<>"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[character]);
@@ -53,15 +54,18 @@ async function main() {
     throw new Error(`${systemRoot}/tokens 里没有 token`);
   }
   const name = String(options.name ?? path.basename(path.dirname(systemRoot)) ?? "设计系统");
-  // 系统类型：品牌 / 内容站不展示状态胶囊、危险按钮、Tooltip 这类产品样例（它们只会露出后备值），换成导航项 / Hero 大字 / CTA
-  let profile = options.profile === undefined ? null : String(options.profile);
-  if (!profile) {
+  // 系统类型：通用网站不展示状态胶囊、危险按钮、Tooltip 这类产品样例（它们只会露出后备值），换成导航项 / Hero 大字 / CTA；套件由类型的 board 字段决定
+  let typeId = options.type === undefined && options.profile === undefined ? null : String(options.type ?? options.profile);
+  if (!typeId) {
     try {
       const identity = JSON.parse(await readFile(path.join(systemRoot, "..", "design-system.json"), "utf8"));
-      if (typeof identity.profile === "string") profile = identity.profile;
+      if (typeof identity.type === "string") typeId = identity.type;
+      else if (typeof identity.profile === "string") typeId = identity.profile;
     } catch { /* 项目模式没有身份文件 */ }
   }
-  profile = ["brand", "product", "admin"].includes(profile) ? profile : "product";
+  const registry = await loadTypes({ dirs: String(options["types-dir"] ?? "").split(",").map((dir) => dir.trim()).filter(Boolean), startDir: systemRoot });
+  const systemType = resolveType(registry, typeId ?? "product");
+  const kit = systemType.board;
   const paths = allPaths(system);
   const has = (tokenPath) => system.core.has(tokenPath);
   const semantic = paths.filter((tokenPath) => aliasTarget(system.core.get(tokenPath)?.value));
@@ -209,9 +213,9 @@ ${cssHref ? `<link rel="stylesheet" href="${escape(cssHref)}">` : `<style id="to
 </header>
 <main>
   <section>
-    <h2>组件样例 <small>只用语义变量拼出来的，缺角色会露出后备值 · 系统类型 ${profile}</small></h2>
+    <h2>组件样例 <small>只用语义变量拼出来的，缺角色会露出后备值 · 系统类型 ${systemType.label}（${systemType.id}）</small></h2>
     <div class="samples">
-      ${profile === "brand" ? `<div class="sample-card">
+      ${kit === "website" ? `<div class="sample-card">
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <span style="font-weight:var(--text-weight-label);padding:4px 10px;border-bottom:2px solid var(--color-border-current)">导航当前项</span>
           <span style="font-weight:var(--text-weight-label);padding:4px 10px;background:var(--color-bg-hover);color:var(--color-text-on-primary)">导航 hover</span>
