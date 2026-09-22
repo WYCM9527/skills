@@ -14,7 +14,7 @@
 import path from "node:path";
 
 import { parseArgs, printJson, readJson, reportError, requireAbsolutePath, requireStringOption, writeJson, writeText } from "./lib/args.mjs";
-import { contrastRatio, hueFamily, isDark, parseCssColor, rgbaToOklch, toHex } from "./lib/color.mjs";
+import { composite, contrastRatio, hueFamily, isDark, parseCssColor, rgbaToOklch, toHex } from "./lib/color.mjs";
 import { aliasToken, colorToken, cubicBezierToken, dimensionToken, durationToken, fontFamilyToken, fontWeightToken, hasPath, numberToken, setPath, sortTokenTree, stringToken } from "./lib/dtcg.mjs";
 import { desktopProbe, detectBaseUnit, isMonoStack, kindScore, mergeColors, mergeCounts, mergePairs, parseBoxShadow, parseFontFamily, parseTimingFunction } from "./lib/evidence.mjs";
 import { detectBrandFamily, Palette } from "./lib/palette.mjs";
@@ -525,6 +525,12 @@ async function main() {
   if (inverseCandidates[0]) draft.role("color.bg.inverse", "color", aliasOf(inverseCandidates[0].hex), { evidence: `与页面明暗相反的中性底（${Object.keys(inverseCandidates[0].kinds ?? {}).slice(0, 2).join(" / ") || "区块"}）`, source: "observed" });
   const overlayEntry = [...palette.entries.values()].find((entry) => entry.usage.has("overlay"));
   if (overlayEntry) draft.role("color.bg.overlay", "color", overlayEntry.path, { evidence: "观察到大面积半透明深底", source: "observed" });
+  if (overlayEntry && FILL_INFERRED) {
+    // 遮罩上的文字：遮罩叠在页面底上算出的有效色够深就用白（text.inverse 在深底系统里是黑，不能借）
+    const overlayOn = pageBg ? composite(overlayEntry.rgba, parseCssColor(pageBg)) : overlayEntry.rgba;
+    const overlayDark = rgbaToOklch({ ...overlayOn, a: 1 }).L < 0.5;
+    draft.role("color.text.on-overlay", "color", overlayDark ? white : aliasOf(primaryText?.hex), { evidence: `遮罩叠在页面底上${overlayDark ? "偏深，用白" : "偏浅，用正文色"}`, source: "inferred" });
+  }
 
   if (primaryText) {
     draft.role("color.text.primary", "color", aliasOf(primaryText.hex), { evidence: `承载最多文字（约 ${primaryText.text} 字）的文字色，对 surface ${primaryContrast}:1`, source: "observed" });
@@ -796,9 +802,18 @@ async function main() {
   const inlineGap = gapEntries.filter((entry) => entry.value <= 12).sort((left, right) => right.gap - left.gap)[0];
   const stackGap = gapEntries.filter((entry) => entry.value >= 12 && entry.value <= 40).sort((left, right) => right.gap - left.gap)[0];
   if (spacingPath(inlineGap?.value)) draft.role("space.inline", "dimension", spacingPath(inlineGap.value), { evidence: `最常见的小 gap ${fmtPx(inlineGap.value)}（${inlineGap.gap} 处）`, source: "observed" });
-  if (spacingPath(stackGap?.value)) draft.role("space.stack", "dimension", spacingPath(stackGap.value), { evidence: `最常见的块间 gap ${fmtPx(stackGap.value)}（${stackGap.gap} 处）`, source: "observed" });
+  // 通用网站的「块与块之间」是区块的上下内边距，不是 flex gap：取 ≥ 24px（rem 系统按根字号等比）且出现最多的区块 padding
+  const pxScale = useRem ? rootFontSize / 16 : 1;
+  const blockPad = (min) => spacingEntries.filter((entry) => entry.value >= min * pxScale && entry.value <= 200 * pxScale && (entry.padding ?? 0) >= MIN_COUNT * 2 && (entry.kinds?.block ?? 0) >= (entry.padding ?? 0) * 0.6 && onGridTest(entry.value)).sort((left, right) => (right.padding ?? 0) - (left.padding ?? 0))[0];
+  const sectionPadY = systemType.archetype === "website" ? blockPad(24) : null;
+  if (sectionPadY && spacingPath(sectionPadY.value)) draft.role("space.stack", "dimension", spacingPath(sectionPadY.value), { evidence: `通用网站：最常见的区块内边距 ${fmtPx(sectionPadY.value)}（${sectionPadY.padding} 处）当块间距`, source: "observed" });
+  else if (spacingPath(stackGap?.value)) draft.role("space.stack", "dimension", spacingPath(stackGap.value), { evidence: `最常见的块间 gap ${fmtPx(stackGap.value)}（${stackGap.gap} 处）`, source: "observed" });
   const sectionPadX = mostCommon(probes.flatMap((probe) => probe.layout?.sections ?? []).map((section) => section.paddingLeft).filter((value) => value >= 12 && value <= 96 && value % 2 === 0));
   if (spacingPath(sectionPadX)) draft.role("space.gutter", "dimension", spacingPath(sectionPadX), { evidence: `区块左右内边距 ${fmtPx(sectionPadX)}`, source: "observed" });
+  else if (systemType.archetype === "website") {
+    const gutterPad = blockPad(32);
+    if (gutterPad && spacingPath(gutterPad.value)) draft.role("space.gutter", "dimension", spacingPath(gutterPad.value), { evidence: `通用网站：区块没有直接的左右内边距样本，取 ≥ 32px 里最常见的区块 padding ${fmtPx(gutterPad.value)}（${gutterPad.padding} 处）`, source: "inferred" });
+  }
   const cardPad = mostCommon(components.cards.map((card) => card.padding?.[0]).filter((value) => value >= 8 && value <= 64 && value % 2 === 0));
   if (spacingPath(cardPad)) draft.role("space.card", "dimension", spacingPath(cardPad), { evidence: `${components.cards.length} 个卡片样本的内边距 ${fmtPx(cardPad)}`, source: "observed" });
   for (const [rolePath, fallback] of [["space.inline", 8], ["space.stack", 16], ["space.gutter", 24], ["space.card", 24]]) {

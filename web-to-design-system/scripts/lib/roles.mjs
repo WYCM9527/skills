@@ -64,6 +64,7 @@ export const ROLES = [
   role("color.text.selected", "color", "extended", "text", "选中文字", "排序激活、当前项文字", true),
   role("color.text.on-selected", "color", "extended", "text", "选中块上的文字", "落在 action.selected 上的文字", true),
   role("color.text.on-brand", "color", "extended", "text", "品牌面上的文字", "落在 bg.brand 上的文字", false),
+  role("color.text.on-overlay", "color", "extended", "text", "遮罩上的文字", "压在 bg.overlay 遮罩上的文字（图片上的标题、全屏菜单项）：深遮罩用白，与 text.inverse 无关——深底系统的 inverse 是黑", false),
   role("color.text.sidebar", "color", "shell", "text", "侧栏文字", "", true),
   role("color.text.sidebar-strong", "color", "shell", "text", "侧栏强调文字", "", true),
   role("color.text.sidebar-muted", "color", "shell", "text", "侧栏弱化文字", "", true),

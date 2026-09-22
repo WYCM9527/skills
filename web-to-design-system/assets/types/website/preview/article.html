@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{NAME}} · 内容页 · 虚拟项目</title>
+{{HEAD}}
+</head>
+<body>
+<header class="pv-nav">
+  <div class="pv-container">
+    <a class="pv-logo" href="#">{{NAME}}</a>
+    <nav class="pv-menu pv-hide-mobile"><a href="#">{{NAV1}}</a><a class="is-current" href="#">{{NAV2}}</a><a href="#">{{NAV3}}</a><a href="#">{{NAV4}}</a></nav>
+    <a class="pv-btn pv-btn--secondary" href="#">{{CTA}}</a>
+  </div>
+</header>
+
+<article class="pv-section pv-section--tall">
+  <div class="pv-container pv-stack" style="max-width: min(var(--layout-container-max-width, 1200px), 900px)">
+    <div class="pv-stack pv-stack--tight">
+      <div class="pv-row"><span class="pv-tag">{{SECTION1}}</span><span class="pv-caption">2026-09-22 · 阅读 6 分钟</span></div>
+      <h1 class="pv-display">{{H2}}</h1>
+      <p class="pv-lead">导语用 lead 档：比正文大一档、次要色。下面的正文检验字号阶梯、行高与链接样式在长文里的表现。</p>
+    </div>
+    <div class="pv-media pv-media--wide" aria-hidden="true"></div>
+    <div class="pv-prose">
+      <h2 class="pv-h2">一、标题阶梯</h2>
+      <p>正文段落用 <code>text.body.size</code> 与 <code>text.paragraph.line-height</code>。一段中文正文大约 50～70 个字换行最舒服，这里放一段足够长的文字来看行长与行距：设计系统把网站上实测到的字号、间距、颜色收成 token，页面只引用用途名，不写数值。</p>
+      <p>正文里的<a class="pv-link" href="#">内容型链接</a>靠下划线或色相识别，与导航、按钮区分。<strong class="pv-strong">强调文字</strong>用 <code>text.weight.strong</code>。</p>
+      <h3 class="pv-h3">1.1 小标题</h3>
+      <p>再往下一档的小标题用 <code>text.title.size</code>。列表：</p>
+      <ul>
+        <li>第一条：列表项用正文字号</li>
+        <li>第二条：项目符号的颜色跟正文</li>
+        <li>第三条：<span class="pv-muted">弱化说明用 text.muted</span></li>
+      </ul>
+      <blockquote>引用块：左侧是 brand.indicator 指示条，文字用次要色。这一条能同时看到品牌指示色与文字层次是否协调。</blockquote>
+      <h2 class="pv-h2">二、代码与图片</h2>
+      <pre><code>:root { --color-action-primary: var(--color-brand-500); }
+.button { background: var(--color-action-primary); }</code></pre>
+      <figure class="pv-stack pv-stack--tight"><div class="pv-media"></div><figcaption class="pv-caption">图注用 caption 档 + 弱化色</figcaption></figure>
+      <p>结尾段落。<a class="pv-link" href="#">返回 {{NAV2}}</a></p>
+    </div>
+    <hr class="pv-divider">
+    <div class="pv-stack">
+      <h2 class="pv-h3">相关内容</h2>
+      <div class="pv-grid">
+        <a class="pv-card pv-card--flush" href="#"><div class="pv-media"></div><div class="pv-card__body"><h3 class="pv-h4">{{SECTION2}}</h3><p class="pv-secondary pv-small">一句话说明</p></div></a>
+        <a class="pv-card pv-card--flush" href="#"><div class="pv-media"></div><div class="pv-card__body"><h3 class="pv-h4">{{SECTION3}}</h3><p class="pv-secondary pv-small">一句话说明</p></div></a>
+        <a class="pv-card pv-card--flush" href="#"><div class="pv-media"></div><div class="pv-card__body"><h3 class="pv-h4">{{SECTION1}}</h3><p class="pv-secondary pv-small">一句话说明</p></div></a>
+      </div>
+    </div>
+  </div>
+</article>
+
+<footer class="pv-footer"><div class="pv-container pv-row" style="justify-content: space-between"><span class="pv-small">© {{NAME}}</span><span class="pv-muted pv-small">{{SOURCE}}</span></div></footer>
+</body>
+</html>

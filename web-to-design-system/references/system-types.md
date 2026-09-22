@@ -10,7 +10,8 @@
 ├── quick.md         # DESIGN「先读这里」的编号列表
 ├── visual.md        # DESIGN「视觉语言」的要点
 ├── components.md    # DESIGN「组件原则」的要点
-└── recipes.md       # DESIGN「组件配方」的表格（含表头）
+├── recipes.md       # DESIGN「组件配方」的表格（含表头）
+└── preview/         # 虚拟项目页面模板 <page>.html：只用 var(--*) 与 preview.css 的 .pv-* 类，占位符 {{NAME}} {{H1}} {{SUB}} {{CTA}} {{CTA2}} {{NAV1..4}} {{SECTION1..3}} {{EYEBROW}} {{H2}} {{SOURCE}} {{HEAD}}
 ```
 
 四个 md 缺哪个就沿 `extends` 链回退到父类型的；`type.json` 缺哪个字段也取父类型的。
@@ -40,6 +41,7 @@
 | `bridges` | 否 | `true` 才向用户提「要不要 `--with-citrine-bridges`」；`false` 时传了会提醒 |
 | `pages` | 否 | 预检时推荐取哪些页面的一句话 |
 | `board` | 否 | 预览板样例套件：`website` / `product` / `admin`；缺省按原型 |
+| `preview` | 否 | 虚拟项目要渲染的页面 id 列表，模板在 `<id>/preview/<page>.html`（缺文件沿 `extends` 链回退）；内置：website = landing / article / contact，product = login / list / form，admin = shell / form / drawer |
 
 角色集合的三个键按顺序生效：`tiers` 给出则**重置**为这些层（`core` / `extended` / `shell`）的全部角色，否则从父类型的集合起步；`include` 逐条加入；`exclude` 逐条移除。模式支持 `*` 通配：`color.status.*`、`color.action.danger*`；没匹配到任何角色的模式会在起草摘要里警告（多半是拼错）。角色名以 [semantic-roles.md](semantic-roles.md) 为准。
 
@@ -47,9 +49,9 @@
 
 | id | label | 必须处理 | 允许推断 | 桥接 | 一句话 |
 | --- | --- | --- | --- | --- | --- |
-| `website`（别名 `brand`） | 通用网站 | core 去掉产品专属 24 个 = 55 | 必须集 + 品牌面 / 大字 / 链接装饰 / 浮层阴影 / 缓动 = 82 | 不需要 | 官网、活动页、作品集、博客、内容站：以读和看为主 |
+| `website`（别名 `brand`） | 通用网站 | core 去掉产品专属 24 个 = 55 | 必须集 + 品牌面 / 大字 / 遮罩上的文字 / 链接装饰 / 浮层阴影 / 缓动 = 83 | 不需要 | 官网、活动页、作品集、博客、内容站：以读和看为主 |
 | `product` | 产品应用 | core 79 | core + extended = 132 | 可选 | 面向用户的应用 / SaaS 前台，有表单 / 列表 / 弹窗 / 状态反馈，没有后台壳层 |
-| `admin` | 中后台 | core + shell = 107 | 全部 160 | 可选（建议） | 侧栏 + 表格 + 图表 + 弹窗尺寸的工作台 |
+| `admin` | 中后台 | core + shell = 107 | 全部 161 | 可选（建议） | 侧栏 + 表格 + 图表 + 弹窗尺寸的工作台 |
 
 产品专属的 24 个 core 角色：状态色 ×10（`color.status.*`）、危险色 ×5（`color.action.danger*`、`color.text.on-danger`、`color.text.danger`）、输入框三件（`color.bg.input` / `color.border.input` / `color.text.placeholder`）、`color.bg.elevated`、`control.height.sm / lg`、`layer.dropdown / toast`、`opacity.disabled`。通用网站有联系表单时这些照样按观察填，只是没证据不推断。
 

@@ -2,7 +2,7 @@
 name: web-to-design-system
 description: 从任意网站（一个或多个 URL）用浏览器实测证据提炼一套按本仓库 token 规范组织的设计系统种子——DTCG 2025.10 CSS Profile 的 primitives / semantic token、与 Citrine 对齐的语义角色词表、Core + Theme delta、design-system/ 目录、DESIGN.md（只写意图）与 AUDIT.md（观察 / 推断 / 缺口 / 对比度），能过 design-system-steward validate / build / guard，可选打成带 design-system.json 的种子包供 design-system-adopter 接入。用户说「把这个网站做成设计系统 / 提炼 XX 网站的 token / 按我们的规范抓一套设计系统 / web to design system / 参考这个站起一套规范」时使用。不用于：接入已发布的设计系统（design-system-adopter）、治理项目自身规范或迁移存量（design-system-steward）、只想要一份自由格式 DESIGN.md（原 web-to-design-md）。
 metadata:
-  version: "0.6.0"
+  version: "0.7.0"
 ---
 
 # Web to Design System
@@ -15,6 +15,7 @@ metadata:
 - **起草**：颜色按色族 × 明度分档起名（Primitive），再按角色词表说「这个颜色是主按钮」（Semantic）。机器只做机械的部分，每条别名都写明是 `[观察]` 还是 `[推断]`。
 - **系统类型**：这套规范给什么类型的产品用。类型是可定义的数据（[references/system-types.md](references/system-types.md)）：内置 `website` 通用网站、`product` 产品应用、`admin` 中后台，公司可在 Design-System 仓库 `system-types/<id>/` 加自己的（文档站、电商、H5…）。它决定哪些角色必须处理、允许推断哪些、DESIGN 用哪套配方词汇、要不要组件库桥接；一个官网不会被写成中后台底座。
 - **核对**：Agent 逐角色核对草稿、补缺口、纠正判断，写 DESIGN.md 的意图段落——这一步不能省，机器的推断只是有依据的默认值。
+- **虚拟项目**：用刚提炼的系统渲染几张真实网页（按系统类型：落地页 / 内容页 / 联系页，或登录 / 列表 / 表单，或工作台 / 表单 / 抽屉），与来源站首屏并排给人看——组合关系（三档底色与文字压在一起、主按钮、品牌色出现的位置、字号节奏、留白）在色块清单上看不出来，在页面上一眼能看出来。起草后看一次纠正判定，写入后再走真实接入路径看一次。
 - **写入 + 三绿**：落成 `design-system/`，交给 steward `validate → build → guard`，再跑对比度基线。
 - **可选种子包**：加身份文件与基础桥接，adopter 一条命令接进任何项目。
 
@@ -24,7 +25,7 @@ metadata:
 | --- | --- | --- |
 | 产物 | 一份自由格式 DESIGN.md + markdown 渲染的预览 | `design-system/`（DTCG token + theme-map + DESIGN / AUDIT / THEME）+ token 驱动的预览板 + 可选种子包 |
 | 颜色 | 散文里的 hex | `color.<族>.<档>` 结构化 sRGB + hex，语义层全是 alias |
-| 用途名 | 每次现编 | 固定词表（160 个角色，与 Citrine 对齐），按系统类型（可定义：website / product / admin / 公司自定义）列「必须处理」与「可选」 |
+| 用途名 | 每次现编 | 固定词表（161 个角色，与 Citrine 对齐），按系统类型（可定义：website / product / admin / 公司自定义）列「必须处理」与「可选」 |
 | 暗色 | 文字描述两种模式 | `themes/<id>/` delta + `theme-map.json`，没证据不造 |
 | 验证 | 人读一遍 | steward 三绿 + `check-contrast.mjs` 对比度基线 |
 | 接入 | 复制粘贴 | `ds.mjs init --system <种子> --stack css` |
@@ -87,6 +88,7 @@ node <本 skill>/scripts/draft-tokens.mjs --evidence /tmp/<id>-evidence.json --o
 - **缺口**：`audit-summary.md`「必须处理的缺口」按系统类型列出，三选一——补证据（换页面再取）/ 按规则推断并标注 / 写明本系统不需要；「可选角色未填」有证据再填，**不为它们发明值**（品牌站不要借中后台的侧栏宽、表格内边距、状态色来把词表填满）。
 - **品牌决定要问用户**（≤ 4 题，带推荐项）：选中态用品牌色还是反转块、链接靠色相还是下划线、暗色是否纳管（拿到了另一模式才问）、状态色缺证据时是否借公司调色板。
 - 不改 Primitive 的值去「美化」——值是观察到的；要调（比如对比度不够压深）在 `$description` 写明原值与原因。
+- **先看一眼再改**：`node <本 skill>/scripts/render-preview.mjs --draft /tmp/<id>-draft --evidence /tmp/<id>-evidence.json --out /tmp/<id>-preview --shots`（内联解析值，不用构建；直角系统加 `--radius-control none --radius-card none`），打开 `index.html` 对着「看图清单」过——表面判成白、正文判成黑、主按钮该白还是该品牌色、留白太小，这些在页面上一眼就看出来。改完草稿重渲，满意再写入。
 
 ### 4. 写入
 
@@ -105,7 +107,7 @@ node <本 skill>/scripts/scaffold-system.mjs --from /tmp/<id>-draft --into-repo 
 
 然后**写 DESIGN.md**：把模板里每处「待填写 / 待确认」换成从证据读出来的规则——只写角色名与规则，不写数值（数值在 token）。写完 `rg "待填写|待确认" design-system/DESIGN.md` 应为 0。AUDIT.md 的推断清单与缺口清单由脚本填好，补「对比度基线」「未纳管项」「风险与待确认」三段；拷了桥接的还要把「桥接缺口」每行的「待决定」改成「补 token」或「删规则」并落实。`migration/roles.json` 的 `hints` 里补上旧系统独有的变量名与色值，`noEquivalent` 按 DESIGN 填。
 
-### 5. 三绿 + 对比度 + 预览
+### 5. 三绿 + 对比度 + 预览 + 虚拟项目
 
 ```bash
 node <steward>/scripts/validate-system.mjs --project <目录>
@@ -114,7 +116,10 @@ node <steward>/scripts/build-tokens.mjs --project <目录>
 node <steward>/scripts/guard.mjs --project <目录>                      # 应为 current
 node <本 skill>/scripts/check-contrast.mjs --system <目录>/design-system --write <目录>/design-system/contrast.md
 node <本 skill>/scripts/render-token-board.mjs --system <目录>/design-system --out <目录>/design-system/token-board.html --css dist/index.css
+node <本 skill>/scripts/render-preview.mjs --system <目录>/design-system --evidence /tmp/<id>-evidence.json --shots [--via-adopter]   # 虚拟项目：真实页面 + 来源站首屏对照
 ```
+
+虚拟项目（`render-preview.mjs`）写到 `design-system/preview/`：按系统类型的 `preview` 页面列表渲染 HTML（只引用 token 变量，颜色角色缺失露出洋红），链接 `dist/index.css` + `bridge/base.css`（`--via-adopter` 改为走 adopter `export` 的交付物），agent-browser 截 1440 / 390 与每个 Theme，`index.html` 是对照页（来源站首屏 vs 虚拟页 + 看图清单）。把 `index.html` 的路径与截图给用户看，让用户按清单判断「提炼得像不像」；HTML 随种子提交，`shots/` 与 `static/` 不进仓库（.gitignore 已写）。页面模板随类型定义走（`assets/types/<id>/preview/`，自定义类型可带自己的页面）。
 
 steward 位置：`node <adopter>/scripts/ds.mjs steward locate`（脚手架结束时也会打印）。对比度失败项：改值或由用户拍板登记例外（AUDIT + DESIGN「已批准的例外」，附回补路径）。预览板用 agent-browser 打开亮暗各看一眼，暗色下露出后备值的角色就是 Theme delta 的缺口。
 
@@ -143,6 +148,7 @@ node <本 skill>/scripts/publish-check.mjs --seed <仓库根>/<id>/seeds/<id>   
 ├── scope-map.json                   # 空
 ├── theme-map.json + themes/<id>/    # 仅当取到另一模式
 ├── style-dictionary.config.mjs
+├── preview/                         # 虚拟项目：按系统类型的真实页面 + index.html 对照页（shots/ 不进仓库）
 ├── dist/                            # steward 构建
 ├── contrast.md                      # check-contrast 报告（可选留档）
 └── token-board.html                 # 预览板（可选留档）
@@ -173,6 +179,7 @@ node <本 skill>/scripts/publish-check.mjs --seed <仓库根>/<id>/seeds/<id>   
 - [ ] `DESIGN.md` 无「待填写 / 待确认」；每条规则引用的角色在 `semantic.tokens.json` 里存在。
 - [ ] `AUDIT.md` 的推断清单每行有确认状态；core 层缺口每行有决定。
 - [ ] 有 Theme 时：`THEME.md` 列出的「通常也随模式变化」角色逐条确认过；预览板暗色下没有露出后备值的核心角色。
+- [ ] 虚拟项目 `design-system/preview/index.html` 渲染过、截图给用户看过，页面上没有洋红（该类型要求的角色都有值），用户按看图清单确认过或提出了修改。
 - [ ] 种子 / 发布模式：adopter `init` 与 `agents` 跑通；`design-system.json` 里的 repo / npm 是用户确认的；`publish-check.mjs` 全 ✔ 后才打 tag。
 - [ ] 目标目录干净：没有证据 JSON、草稿目录、评测截图。
 - [ ] 最终回复里说明：来源页面、系统类型（谁定的）、品牌族判定、观察 / 推断 / 必须处理的缺口数、Theme 有无、对比度例外、下一步（补哪些页面的证据）。
@@ -180,8 +187,8 @@ node <本 skill>/scripts/publish-check.mjs --seed <仓库根>/<id>/seeds/<id>   
 ## 参考索引
 
 - [references/token-spec.md](references/token-spec.md)：本仓库 token 规范速查（格式 / 分层 / 目录 / 文档分工 / 验收 / 种子包）
-- [references/semantic-roles.md](references/semantic-roles.md)：160 个语义角色（core / extended / shell）与对比度配对
-- [references/system-types.md](references/system-types.md)：系统类型怎么定义（type.json 字段、四段配方词汇、extends、自定义目录）、内置三类各要哪些角色、自动推断的判据
+- [references/semantic-roles.md](references/semantic-roles.md)：161 个语义角色（core / extended / shell）与对比度配对
+- [references/system-types.md](references/system-types.md)：系统类型怎么定义（含 `preview` 页面模板）（type.json 字段、四段配方词汇、extends、自定义目录）、内置三类各要哪些角色、自动推断的判据
 - [references/mapping-rules.md](references/mapping-rules.md)：证据 → token 的归档规则、另一模式、缺口怎么补
 - [references/extraction-checklist.md](references/extraction-checklist.md)：选页面、脚本读了什么、什么不取
 - [references/browser-tooling.md](references/browser-tooling.md)：agent-browser 引导与故障

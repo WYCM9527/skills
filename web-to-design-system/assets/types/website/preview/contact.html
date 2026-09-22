@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{NAME}} · 联系页 · 虚拟项目</title>
+{{HEAD}}
+</head>
+<body>
+<header class="pv-nav">
+  <div class="pv-container">
+    <a class="pv-logo" href="#">{{NAME}}</a>
+    <nav class="pv-menu pv-hide-mobile"><a href="#">{{NAV1}}</a><a href="#">{{NAV2}}</a><a href="#">{{NAV3}}</a><a class="is-current" href="#">{{NAV4}}</a></nav>
+    <a class="pv-btn pv-btn--primary" href="#">{{CTA}}</a>
+  </div>
+</header>
+
+<section class="pv-section pv-section--tall">
+  <div class="pv-container pv-grid pv-grid--2" style="align-items: start">
+    <div class="pv-stack">
+      <div class="pv-eyebrow">{{CTA}}</div>
+      <h1 class="pv-display">{{SUB}}</h1>
+      <p class="pv-lead">留下你的邮箱和想法，我们会在两个工作日内回复。这一页检验输入框、占位符、焦点环与提交按钮。</p>
+      <div class="pv-stack pv-stack--tight pv-secondary">
+        <div class="pv-row"><span class="pv-dot"></span>hello@example.com</div>
+        <div class="pv-row"><span class="pv-dot"></span>周一至周五 10:00–19:00</div>
+      </div>
+    </div>
+    <form class="pv-card pv-stack" onsubmit="return false">
+      <div class="pv-field"><label class="pv-label">邮箱</label><input class="pv-input" placeholder="请输入你的邮箱…"></div>
+      <div class="pv-field"><label class="pv-label">姓名</label><input class="pv-input" value="已填好的值"></div>
+      <div class="pv-field"><label class="pv-label">留言</label><textarea class="pv-input" placeholder="请输入你的留言…"></textarea><span class="pv-help">帮助文字用 text.small + text.muted</span></div>
+      <label class="pv-check pv-small"><i class="is-on"></i>同意接收后续通知</label>
+      <div class="pv-row"><button class="pv-btn pv-btn--primary pv-btn--lg" type="submit">{{CTA}}</button><button class="pv-btn pv-btn--quiet" type="button">取消</button></div>
+    </form>
+  </div>
+</section>
+
+<section class="pv-section pv-section--subtle">
+  <div class="pv-container pv-row" style="justify-content: space-between">
+    <span class="pv-secondary">也可以直接写邮件：<a class="pv-link" href="#">hello@example.com</a></span>
+    <span class="pv-caption">禁用态示意：<button class="pv-btn pv-btn--primary pv-btn--sm is-disabled" type="button">已发送</button></span>
+  </div>
+</section>
+
+<footer class="pv-footer"><div class="pv-container pv-row" style="justify-content: space-between"><span class="pv-small">© {{NAME}}</span><span class="pv-muted pv-small">{{SOURCE}}</span></div></footer>
+</body>
+</html>

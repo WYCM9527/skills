@@ -5,7 +5,7 @@
 // 产物是一份 JSON 证据（默认写到系统临时目录），交给 draft-tokens.mjs 起草。不截图、不静态抓 HTML。
 //
 // 用法：node extract-evidence.mjs <url> [<url> …] [--out <file.json>] [--viewports 1440x900,1024x768,390x844]
-//       [--no-dark] [--no-hover] [--no-responsive] [--max-nodes 5000] [--settle 800] [--session <name>] [--keep-open]
+//       [--no-dark] [--no-hover] [--no-responsive] [--no-screens]（不存首屏截图；默认存到 <out>-screens/ 给虚拟项目对照页）[--max-nodes 5000] [--settle 800] [--session <name>] [--keep-open]
 
 import fs from "node:fs";
 import fsp from "node:fs/promises";
@@ -40,6 +40,7 @@ const viewports = String(options.viewports ?? "1440x900,1024x768,390x844")
 const outFile = options.out
   ? path.resolve(process.cwd(), String(options.out))
   : path.join(os.tmpdir(), `w2ds-evidence-${Date.now()}.json`);
+const screensDir = path.join(path.dirname(outFile), `${path.basename(outFile).replace(/\.json$/, "")}-screens`); // 首屏截图，给虚拟项目对照页
 
 // ---------------------------------------------------------------------------------------------------------------------
 // 浏览器侧探针（在页面里执行，返回 JSON 字符串）。__MODE__：full = 全量；colors = 只取颜色与根变量（暗色对照）；layout = 排版 + 布局（其他视口）。
@@ -484,7 +485,7 @@ function hoverAndFocusProbes() {
   return { focus, hover };
 }
 
-async function extractOne(url) {
+async function extractOne(url, pageIndex) {
   const entry = { interactions: null, modes: {}, url, viewports: {} };
   const [desktop, ...others] = viewports;
   ab(["set", "viewport", String(desktop.width), String(desktop.height)]);
@@ -494,6 +495,14 @@ async function extractOne(url) {
   // 见过站点的 resize 处理在 390 → 1440 后把根字号算成 61.44px。reload 让每页从干净的文档状态起测。
   ab(["reload"], { allowFailure: true });
   settle();
+  // 首屏截图：给虚拟项目的对照页用（人比「提炼得像不像」），不是取证证据
+  entry.screenshots = {};
+  const shot = (kind) => {
+    if (options["no-screens"] === true) return;
+    const file = path.join(screensDir, `${pageIndex}-${kind}.png`);
+    if (ab(["screenshot", file], { allowFailure: true }).ok) entry.screenshots[kind] = file;
+  };
+  shot("desktop");
   scrollSweep();
 
   const full = probe("full");
@@ -513,6 +522,7 @@ async function extractOne(url) {
     const mediaProbe = probe("colors");
     const mediaScheme = pageScheme(mediaProbe);
     entry.modes[`media-${wanted}`] = { changed: mediaScheme !== initialScheme, probe: mediaProbe, scheme: mediaScheme, source: `set media ${wanted} + reload` };
+    if (mediaScheme !== initialScheme) { evalJson("(() => { window.scrollTo(0, 0); return JSON.stringify(true); })()", { allowFailure: true }); shot(wanted); }
     ab(["set", "media", initialScheme], { allowFailure: true });
     ab(["reload"], { allowFailure: true });
     settle();
@@ -523,6 +533,7 @@ async function extractOne(url) {
       wait(250);
       const classProbe = probe("colors");
       const classScheme = pageScheme(classProbe);
+      if (classScheme !== initialScheme && !entry.screenshots[wanted]) { evalJson("(() => { window.scrollTo(0, 0); return JSON.stringify(true); })()", { allowFailure: true }); shot(wanted); }
       entry.modes[`toggle-${wanted}`] = { activation: toggle.attribute ? { attribute: toggle.attribute, kind: "data-attribute" } : { kind: "class" }, applied, changed: classScheme !== initialScheme, probe: classProbe, scheme: classScheme, source: toggle.attribute ? `html[${toggle.attribute}="${toggle.token}"]` : `html.${toggle.token}` };
       evalJson(TOGGLE_CLASS("revert", toggle.token, toggle.attribute), { allowFailure: true });
       wait(150);
@@ -540,6 +551,7 @@ async function extractOne(url) {
       evalJson("(() => { window.scrollTo(0, 0); return JSON.stringify(true); })()", { allowFailure: true });
       const layoutProbe = probe("layout");
       entry.viewports[viewport.name] = { ...layoutProbe, viewportName: viewport.name, width: viewport.width, height: viewport.height };
+      if (viewport.name === "mobile") shot("mobile");
     }
     ab(["set", "viewport", String(desktop.width), String(desktop.height)], { allowFailure: true });
   }
@@ -550,9 +562,10 @@ async function main() {
   const started = Date.now();
   const results = { extractedAt: new Date().toISOString(), pages: [], tooling: { agentBrowser, session, viewports }, version: 1 };
   try {
-    for (const url of urls) {
+    if (options["no-screens"] !== true) await fsp.mkdir(screensDir, { recursive: true });
+    for (const [index, url] of urls.entries()) {
       process.stderr.write(`取证 ${url}\n`);
-      results.pages.push(await extractOne(url));
+      results.pages.push(await extractOne(url, index + 1));
     }
   } finally {
     if (options["keep-open"] !== true) {

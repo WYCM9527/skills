@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{NAME}} · 登录 · 虚拟项目</title>
+{{HEAD}}
+</head>
+<body>
+<div class="pv-grid pv-grid--2" style="min-height: 100vh; gap: 0">
+  <section class="pv-section--brand pv-hide-mobile" style="display: grid; align-content: space-between; padding: var(--space-gutter, 24px)">
+    <span class="pv-logo">{{NAME}}</span>
+    <div class="pv-stack"><h1 class="pv-display">{{H1}}</h1><p style="opacity: var(--opacity-on-primary-muted, .85); max-width: 40ch">{{SUB}}</p></div>
+    <span class="pv-small" style="opacity: var(--opacity-on-primary-muted, .85)">{{SOURCE}}</span>
+  </section>
+  <section style="display: grid; place-items: center; padding: var(--space-gutter, 24px)">
+    <form class="pv-card pv-card--bordered pv-stack" style="width: min(100%, 400px)" onsubmit="return false">
+      <div class="pv-stack pv-stack--tight"><h2 class="pv-h2">登录</h2><p class="pv-secondary pv-small">用账号密码登录 {{NAME}}</p></div>
+      <div class="pv-field"><label class="pv-label">账号</label><input class="pv-input" placeholder="邮箱或手机号"></div>
+      <div class="pv-field"><label class="pv-label">密码</label><input class="pv-input" type="password" value="password"><span class="pv-help">至少 8 位，含字母与数字</span></div>
+      <div class="pv-row" style="justify-content: space-between"><label class="pv-check pv-small"><i class="is-on"></i>记住我</label><a class="pv-link pv-small" href="#">忘记密码</a></div>
+      <button class="pv-btn pv-btn--primary pv-btn--lg" type="submit">{{CTA}}</button>
+      <button class="pv-btn pv-btn--secondary" type="button">使用企业账号登录</button>
+      <div class="pv-alert pv-small"><span class="pv-dot" style="background: currentColor"></span>提示条：status.info + info-bg</div>
+      <p class="pv-caption" style="text-align: center">还没有账号？<a class="pv-link" href="#">注册</a></p>
+    </form>
+  </section>
+</div>
+</body>
+</html>

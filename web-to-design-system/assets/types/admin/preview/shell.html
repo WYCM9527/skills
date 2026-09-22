@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{NAME}} · 工作台 · 虚拟项目</title>
+{{HEAD}}
+</head>
+<body>
+<div class="pv-shell">
+  <aside class="pv-sidebar">
+    <span class="pv-logo">{{NAME}}</span>
+    <nav class="pv-stack pv-stack--tight">
+      <span class="pv-group">工作台</span>
+      <a class="is-current" href="#"><i></i>{{NAV1}}</a><a href="#"><i></i>{{NAV2}}</a><a href="#"><i></i>{{NAV3}}</a>
+      <span class="pv-group">管理</span>
+      <a href="#"><i></i>{{NAV4}}</a><a href="#"><i></i>设置</a>
+    </nav>
+  </aside>
+  <div class="pv-main">
+    <header class="pv-topbar"><div class="pv-row"><span class="pv-secondary pv-small">{{NAV1}} / 概览</span></div><div class="pv-row"><input class="pv-input pv-search pv-hide-mobile" placeholder="搜索…"><button class="pv-btn pv-btn--primary pv-btn--sm" type="button">{{CTA}}</button><span class="pv-avatar"></span></div></header>
+    <main class="pv-content">
+      <div class="pv-toolbar"><h1 class="pv-h2">{{H1}}</h1><nav class="pv-tabs" style="border: 0"><a class="is-current" href="#">今日</a><a href="#">本周</a><a href="#">本月</a></nav></div>
+      <div class="pv-grid pv-grid--4">
+        <div class="pv-card pv-stat"><span class="pv-secondary pv-small">{{SECTION1}}</span><b class="pv-numeric">12,480</b><span class="pv-small" style="color: var(--color-data-increase, var(--color-status-success))">▲ 8.2%</span></div>
+        <div class="pv-card pv-stat"><span class="pv-secondary pv-small">{{SECTION2}}</span><b class="pv-numeric">96.4%</b><span class="pv-small" style="color: var(--color-data-increase, var(--color-status-success))">▲ 0.6%</span></div>
+        <div class="pv-card pv-stat"><span class="pv-secondary pv-small">{{SECTION3}}</span><b class="pv-numeric">37</b><span class="pv-small" style="color: var(--color-data-decrease, var(--color-status-error))">▼ 3.1%</span></div>
+        <div class="pv-card pv-stat"><span class="pv-secondary pv-small">图表色</span><div class="pv-row" style="align-items: flex-end; height: 48px; gap: 4px"><i style="flex:1;height:60%;background:var(--color-chart-1, var(--pv-miss))"></i><i style="flex:1;height:90%;background:var(--color-chart-2, var(--pv-miss))"></i><i style="flex:1;height:40%;background:var(--color-chart-3, var(--pv-miss))"></i><i style="flex:1;height:70%;background:var(--color-chart-4, var(--pv-miss))"></i><i style="flex:1;height:30%;background:var(--color-chart-5, var(--pv-miss))"></i><i style="flex:1;height:55%;background:var(--color-chart-6, var(--pv-miss))"></i></div></div>
+      </div>
+      <div class="pv-card pv-card--flush">
+        <div class="pv-toolbar" style="padding: var(--space-card, 16px)"><h2 class="pv-h3">{{NAV1}}</h2><div class="pv-row"><input class="pv-input" style="width: 180px" placeholder="筛选"><button class="pv-btn pv-btn--secondary pv-btn--sm" type="button">导出</button></div></div>
+        <table class="pv-table">
+          <thead><tr><th style="width: 40px"><span class="pv-check"><i></i></span></th><th>名称</th><th>负责人</th><th>状态</th><th class="pv-numeric" style="text-align: right">金额</th><th>更新时间</th><th></th></tr></thead>
+          <tbody>
+            <tr class="is-selected"><td><span class="pv-check"><i class="is-on"></i></span></td><td><div class="pv-strong">{{SECTION1}}</div><div class="pv-muted">副行说明</div></td><td>王小明</td><td><span class="pv-badge pv-badge--success">已通过</span></td><td class="pv-numeric" style="text-align: right">12,800.00</td><td class="pv-secondary">今天 10:24</td><td><a class="pv-link pv-small" href="#">编辑</a></td></tr>
+            <tr><td><span class="pv-check"><i></i></span></td><td><div class="pv-strong">{{SECTION2}}</div><div class="pv-muted">副行说明</div></td><td>李华</td><td><span class="pv-badge pv-badge--warning">待审批</span></td><td class="pv-numeric" style="text-align: right">3,200.00</td><td class="pv-secondary">昨天</td><td><a class="pv-link pv-small" href="#">编辑</a></td></tr>
+            <tr><td><span class="pv-check"><i></i></span></td><td><div class="pv-strong">{{SECTION3}}</div><div class="pv-muted">副行说明</div></td><td>张三</td><td><span class="pv-badge pv-badge--error">已驳回</span></td><td class="pv-numeric" style="text-align: right">980.00</td><td class="pv-secondary">3 天前</td><td><a class="pv-link pv-small" href="#">编辑</a></td></tr>
+            <tr><td><span class="pv-check"><i></i></span></td><td><div class="pv-strong">第四条</div><div class="pv-muted">副行说明</div></td><td>陈静</td><td><span class="pv-badge pv-badge--info">提示</span></td><td class="pv-numeric" style="text-align: right">45,000.00</td><td class="pv-secondary">上周</td><td><a class="pv-link pv-small" href="#">编辑</a></td></tr>
+          </tbody>
+        </table>
+        <div class="pv-toolbar" style="padding: var(--space-card, 16px)"><span class="pv-secondary pv-small">第 1–4 条，共 128 条</span><nav class="pv-pagination"><a href="#">‹</a><a class="is-current" href="#">1</a><a href="#">2</a><a href="#">3</a><a href="#">›</a></nav></div>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

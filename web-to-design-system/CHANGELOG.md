@@ -7,6 +7,17 @@
 - **默认 `description` 不该是用户决策**：`scaffold-system.mjs` 不传 `--description` 时写成「<名称>：从 <URL> 实测提炼的设计系统。」，这句会落到根 README 表格「定位」列、`design-system.json`、`<id>/README.md`、`package.json`。改为从 `draft-notes.json` 拼一句能直接上表的定位（来源域名 · 主操作色与色族 · 有无另一模式 · 栈与桥接状态），并把 SKILL「6. 发布到 Design-System 仓库」里「写进仓库前问用户 `--description`」改成「Agent 按证据起草定位，给用户过目即可」。
 - **npm 发布不在 skill 里决定**：提炼出的种子继续默认不带 `publishConfig`（只走文件夹 / Release 直链渠道，adopter 接入与按 tag 升级都不依赖 registry）；何时值得上 npm 的判据记在 Design-System 仓库 GUIDE 8c 第 8 步，`release.yml` 已会自动识别 `publishConfig`。
 
+## 0.7.0 — 2026-09-22
+
+**虚拟项目**：每提炼一套系统就用它渲染几张真实网页给人做视觉验证。预览板只验证「有哪些 token」，这轮暴露的问题全是「组合起来对不对」——表面判成白、正文判成黑、正文 61px、主按钮该白还是该橙红——在一张真实排版的页面上一眼能看出来。
+
+- **`render-preview.mjs`**：按系统类型的 `preview` 页面列表渲染 HTML（website = 落地页 / 内容页 / 联系页，product = 登录 / 列表 / 表单 + 弹窗，admin = 工作台 / 表单 / 抽屉），页面只引用 token 变量，颜色角色缺失露出洋红；文案取自取证到的 h1 / h2 / CTA。三种 token 来源：`--draft` 内联解析值（起草后就能看，不用构建）、`--system` 链接 `dist/index.css` + `bridge/base.css`、`--via-adopter` 走 adopter `export` 的交付物（接入方拿到的东西）。`--shots` 用 agent-browser 截 1440 / 390 与每个 Theme；`index.html` 对照页：来源站首屏 vs 虚拟页并排 + 看图清单。`--radius-control / --radius-card` 指定控件 / 卡片圆角档（直角系统传 none），`--local-css` 追加本系统配方；rem 站点复刻 `100vw / N` 根字号、窄屏按桌面根字号；窄屏 hero / display 降两档。
+- **取证存首屏截图**：`extract-evidence` 每页存桌面 / 手机 / 另一模式（拿到时）首屏到 `<out>-screens/`，写进 `page.screenshots`，只给对照页用；`--no-screens` 关掉。
+- **新角色 `color.text.on-overlay`**（extended，词表 161）：压在遮罩上的文字。深底系统的 `text.inverse` 是黑，图片上的白字借不到——虚拟项目第一版就露了这个坑。draft 在观察到遮罩时按叠底明度推断；website 类型允许推断。
+- **website 的留白节奏**：`space.stack` 取最常见的区块内边距（≥ 24px，rem 系统按根字号等比）而不是 flex gap；没有区块左右内边距样本时 `space.gutter` 取 ≥ 32px 里最常见的区块 padding（推断）。
+- `type.json` 加 `preview` 字段；`assets/preview/preview.css` 是虚拟项目的组件样式（`.pv-*`，按配方角色拼）；`inlineTokensCss` 抽到 `lib/system.mjs` 供预览板与虚拟项目共用；种子 `.gitignore` 忽略 `design-system/preview/shots/` 与 `static/`。
+- SKILL：核对段加「先看一眼再改」，第 5 步加虚拟项目，质量门加「用户按看图清单确认过」；README / system-types / extraction-checklist 同步。
+
 ## 0.6.0 — 2026-09-22
 
 系统类型从写死的三个改成**可定义的数据**：用户要的是「可以定义类型，比如通用网站、中后台，等等」，不是挑一个我给的枚举。

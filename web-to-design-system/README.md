@@ -1,6 +1,6 @@
 # web-to-design-system
 
-从任意网站提炼一套按 Design-System 仓库 token 规范组织的设计系统种子：agent-browser 在真实渲染页面里读计算样式 → 起草 DTCG token（`color.<族>.<档>` 的 Primitive + 与 Citrine 对齐的语义角色）→ 人核对 → 写成 `design-system/`（DESIGN / AUDIT / theme-map / themes）→ design-system-steward 三绿 → 对比度基线 → token 预览板；可选打成带 `design-system.json` 的种子包（`--into-repo` 直接按 Design-System 仓库约定落位、`--with-citrine-bridges` 拷组件库桥接当起点、`--build` 出 dist），`publish-check.mjs` 过门禁后打 tag，design-system-adopter 一条命令接入并按 tag 升级。
+从任意网站提炼一套按 Design-System 仓库 token 规范组织的设计系统种子：agent-browser 在真实渲染页面里读计算样式 → 起草 DTCG token（`color.<族>.<档>` 的 Primitive + 与 Citrine 对齐的语义角色）→ 人核对 → 写成 `design-system/`（DESIGN / AUDIT / theme-map / themes）→ design-system-steward 三绿 → 对比度基线 → token 预览板 → 虚拟项目（按系统类型渲染真实网页，与来源站首屏并排给人做视觉验证）；可选打成带 `design-system.json` 的种子包（`--into-repo` 直接按 Design-System 仓库约定落位、`--with-citrine-bridges` 拷组件库桥接当起点、`--build` 出 dist），`publish-check.mjs` 过门禁后打 tag，design-system-adopter 一条命令接入并按 tag 升级。
 
 它是 [web-to-design-md](https://github.com/Paidax01/web-to-design-md) 的魔改版：取证方式沿用，产物从「一篇 DESIGN.md」换成「能构建、能校验、能接入的 token 系统」。怎么用看 [SKILL.md](SKILL.md)。
 
@@ -19,8 +19,9 @@ web-to-design-system/
 │   ├── list-types.mjs             # 列出可用的系统类型（内置 + 仓库 system-types/ + --types-dir）
 │   ├── check-contrast.mjs         # 对比度基线（默认模式 + 每个 Theme）
 │   ├── render-token-board.mjs     # token 驱动的预览板（亮暗切换）
+│   ├── render-preview.mjs         # 虚拟项目：按系统类型渲染真实网页 + 截图 + 与来源站首屏对照
 │   └── lib/                       # color（解析 / OKLCH / 对比度）、dtcg、palette、evidence、roles（角色词表 + 迁移对照）、bridges、repo、system、steward、args
-├── assets/                        # DESIGN / AUDIT / THEME 模板、types/<website|product|admin>/ 内置系统类型（type.json + 四段配方词汇）、style-dictionary 配置、种子模式的身份文件 / 桥接 / 接线模板 / 系统级 README 模板
+├── assets/                        # DESIGN / AUDIT / THEME 模板、types/<website|product|admin>/ 内置系统类型（type.json + 四段配方词汇 + preview/ 页面模板）、preview/preview.css 虚拟项目组件样式、style-dictionary 配置、种子模式的身份文件 / 桥接 / 接线模板 / 系统级 README 模板
 ├── references/                    # token 规范速查、语义角色词表、映射规则、取证清单、浏览器引导
 ├── tests/                         # node --test：夹具证据 → 起草 → 脚手架 → steward 校验 / 构建
 └── agents/openai.yaml

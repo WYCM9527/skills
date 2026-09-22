@@ -315,7 +315,7 @@ async function main() {
       }
     }
     await put("package.json", pkg);
-    await put(".gitignore", "node_modules/\n.DS_Store\n");
+    await put(".gitignore", "node_modules/\n.DS_Store\ndesign-system/preview/shots/\ndesign-system/preview/static/\n"); // 虚拟项目的截图与 export 产物本地生成，不进仓库
   }
 
   // —— 发布模式：系统级 README + 仓库根 README 表格 ——

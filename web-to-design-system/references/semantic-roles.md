@@ -2,7 +2,7 @@
 
 Semantic 层的用途名。与 Citrine 种子的 `semantic.tokens.json` 对齐：同一个名字在任何按本规范提炼的系统里都指同一种用途，值不同、名字不变——这样桥接（`bridge/element-plus.css` 这类逐组件接管）、配方（`recipes.css`）、迁移角色表（`migration/roles.json`）以后才能跨系统复用。机器可读版是 `scripts/lib/roles.mjs`（draft-tokens 用它列缺口、check-contrast 用它配对、render-token-board 用它分组）；改一处要同步另一处。
 
-共 160 个角色，分三层；哪些「必须处理」由**系统类型**决定——类型是可定义的数据（[system-types.md](system-types.md)：内置 `website` 通用网站 / `product` 产品应用 / `admin` 中后台，公司可在仓库 `system-types/` 加自己的）：
+共 161 个角色，分三层；哪些「必须处理」由**系统类型**决定——类型是可定义的数据（[system-types.md](system-types.md)：内置 `website` 通用网站 / `product` 产品应用 / `admin` 中后台，公司可在仓库 `system-types/` 加自己的）：
 
 | 内置类型 | 说明 | 必须处理 | 组件库桥接 |
 | --- | --- | --- | --- |
@@ -11,7 +11,7 @@ Semantic 层的用途名。与 Citrine 种子的 `semantic.tokens.json` 对齐�
 | `admin` 中后台 | 侧栏 + 表格 + 图表 + 弹窗尺寸的工作台 | core + shell = 107 | 建议 |
 
 - **core（79）**：产品应用的基础集合。其中状态色 ×10、危险色 ×5、输入框三件（`bg.input` / `border.input` / `text.placeholder`）、`bg.elevated`、`control.height.sm / lg`、`layer.dropdown / toast`、`opacity.disabled` 是产品专属，通用网站不必处理。
-- **extended（53）**：有证据再填；选中态、骨架屏、大字等多见于产品 / 中后台。通用网站允许按规则推断的只有品牌面 / 大字 / 链接装饰 / 浮层阴影 / 缓动。
+- **extended（54）**：有证据再填；选中态、骨架屏、大字等多见于产品 / 中后台。通用网站允许按规则推断的只有品牌面 / 大字 / 链接装饰 / 浮层阴影 / 缓动。
 - **shell（28）**：中后台壳层（侧栏、表格、图表、涨跌、弹窗尺寸），只有 `admin` 类型才必须处理。
 
 角色名以外的 Semantic 也允许（站点有独特用途时），但先问自己能不能落到已有角色；新名字进 AUDIT「风险与待确认」。
@@ -69,6 +69,7 @@ Semantic 层的用途名。与 Citrine 种子的 `semantic.tokens.json` 对齐�
 | `color.text.selected` | color | extended | 选中文字 | 排序激活、当前项文字 | 是 |
 | `color.text.on-selected` | color | extended | 选中块上的文字 | 落在 action.selected 上的文字 | 是 |
 | `color.text.on-brand` | color | extended | 品牌面上的文字 | 落在 bg.brand 上的文字 | 否 |
+| `color.text.on-overlay` | color | extended | 遮罩上的文字 | 压在 bg.overlay 遮罩上的文字（图片上的标题、全屏菜单项）：深遮罩用白；深底系统的 text.inverse 是黑，不能借 | 否 |
 | `color.text.sidebar` | color | shell | 侧栏文字 | — | 是 |
 | `color.text.sidebar-strong` | color | shell | 侧栏强调文字 | — | 是 |
 | `color.text.sidebar-muted` | color | shell | 侧栏弱化文字 | — | 是 |

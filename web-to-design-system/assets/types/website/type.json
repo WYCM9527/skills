@@ -32,6 +32,7 @@
         "color.bg.brand",
         "color.text.brand",
         "color.text.on-brand",
+        "color.text.on-overlay",
         "color.brand.indicator",
         "color.icon.brand",
         "color.border.current",
@@ -53,5 +54,10 @@
   },
   "bridges": false,
   "pages": "首页（hero、导航、CTA、页脚）+ 一个内容页（正文、标题阶梯、图文卡片、链接）+ 联系 / 订阅页（输入框、焦点）；有作品 / 文章列表再加一页",
-  "board": "website"
+  "board": "website",
+  "preview": [
+    "landing",
+    "article",
+    "contact"
+  ]
 }

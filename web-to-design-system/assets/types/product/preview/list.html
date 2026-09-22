@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{NAME}} · 列表 · 虚拟项目</title>
+{{HEAD}}
+</head>
+<body>
+<header class="pv-nav pv-nav--surface">
+  <div class="pv-container">
+    <a class="pv-logo" href="#">{{NAME}}</a>
+    <nav class="pv-menu pv-hide-mobile"><a class="is-current" href="#">{{NAV1}}</a><a href="#">{{NAV2}}</a><a href="#">{{NAV3}}</a></nav>
+    <div class="pv-row"><input class="pv-input pv-search pv-hide-mobile" placeholder="搜索…"><span class="pv-avatar"></span></div>
+  </div>
+</header>
+<main class="pv-container pv-section pv-stack">
+  <div class="pv-toolbar">
+    <div class="pv-stack pv-stack--tight"><h1 class="pv-h2">{{NAV1}}</h1><span class="pv-secondary pv-small">共 128 条 · 按更新时间排序</span></div>
+    <div class="pv-row"><button class="pv-btn pv-btn--secondary" type="button">导出</button><button class="pv-btn pv-btn--primary" type="button">{{CTA}}</button></div>
+  </div>
+  <nav class="pv-tabs"><a class="is-current" href="#">全部</a><a href="#">进行中</a><a href="#">已完成</a><a href="#">已归档</a></nav>
+  <div class="pv-toolbar"><div class="pv-row"><input class="pv-input" style="width: 200px" placeholder="按名称筛选"><select class="pv-input" style="width: 140px"><option>全部状态</option></select></div><span class="pv-secondary pv-small">已选 1 项 · <a class="pv-link" href="#">清空</a></span></div>
+  <div class="pv-card pv-card--bordered pv-card--flush">
+    <table class="pv-table">
+      <thead><tr><th style="width: 40px"><span class="pv-check"><i></i></span></th><th>名称</th><th>负责人</th><th>状态</th><th class="pv-numeric" style="text-align: right">金额</th><th>更新时间</th><th></th></tr></thead>
+      <tbody>
+        <tr class="is-selected"><td><span class="pv-check"><i class="is-on"></i></span></td><td><div class="pv-strong">{{SECTION1}}</div><div class="pv-muted">副行说明 · text.muted</div></td><td>王小明</td><td><span class="pv-badge pv-badge--success">已通过</span></td><td class="pv-numeric" style="text-align: right">12,800.00</td><td class="pv-secondary">今天 10:24</td><td><a class="pv-link pv-small" href="#">编辑</a></td></tr>
+        <tr><td><span class="pv-check"><i></i></span></td><td><div class="pv-strong">{{SECTION2}}</div><div class="pv-muted">副行说明</div></td><td>李华</td><td><span class="pv-badge pv-badge--warning">待审批</span></td><td class="pv-numeric" style="text-align: right">3,200.00</td><td class="pv-secondary">昨天</td><td><a class="pv-link pv-small" href="#">编辑</a></td></tr>
+        <tr><td><span class="pv-check"><i></i></span></td><td><div class="pv-strong">{{SECTION3}}</div><div class="pv-muted">副行说明</div></td><td>张三</td><td><span class="pv-badge pv-badge--error">已驳回</span></td><td class="pv-numeric" style="text-align: right">980.00</td><td class="pv-secondary">3 天前</td><td><a class="pv-link pv-small" href="#">编辑</a></td></tr>
+        <tr><td><span class="pv-check"><i></i></span></td><td><div class="pv-strong">第四条</div><div class="pv-muted">副行说明</div></td><td>陈静</td><td><span class="pv-badge pv-badge--info">提示</span></td><td class="pv-numeric" style="text-align: right">45,000.00</td><td class="pv-secondary">上周</td><td><a class="pv-link pv-small" href="#">编辑</a></td></tr>
+        <tr><td><span class="pv-check"><i></i></span></td><td><div class="pv-strong">第五条</div><div class="pv-muted">副行说明</div></td><td>—</td><td><span class="pv-badge pv-badge--neutral">草稿</span></td><td class="pv-numeric" style="text-align: right">0.00</td><td class="pv-secondary">上月</td><td><a class="pv-link pv-small" href="#">编辑</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="pv-toolbar"><span class="pv-secondary pv-small">第 1–5 条，共 128 条</span><nav class="pv-pagination"><a href="#">‹</a><a class="is-current" href="#">1</a><a href="#">2</a><a href="#">3</a><a href="#">…</a><a href="#">26</a><a href="#">›</a></nav></div>
+  <div class="pv-grid">
+    <div class="pv-card pv-card--bordered pv-stat"><span class="pv-secondary pv-small">本月新增</span><b class="pv-numeric">1,284</b><span class="pv-small" style="color: var(--color-data-increase, var(--color-status-success))">▲ 12.5%</span></div>
+    <div class="pv-card pv-card--bordered pv-stat"><span class="pv-secondary pv-small">待处理</span><b class="pv-numeric">37</b><span class="pv-small" style="color: var(--color-data-decrease, var(--color-status-error))">▼ 3.1%</span></div>
+    <div class="pv-card pv-card--bordered pv-stack pv-stack--tight"><span class="pv-secondary pv-small">加载中</span><span class="pv-skeleton" style="width: 60%"></span><span class="pv-skeleton" style="width: 40%"></span><span class="pv-skeleton" style="width: 80%"></span></div>
+  </div>
+</main>
+</body>
+</html>

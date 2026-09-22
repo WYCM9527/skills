@@ -18,5 +18,10 @@
   },
   "bridges": true,
   "pages": "首页 / 落地页 + 表单页（登录 / 设置）+ 列表页；能点开弹窗就点开再取",
-  "board": "product"
+  "board": "product",
+  "preview": [
+    "login",
+    "list",
+    "form"
+  ]
 }

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{NAME}} · 表单与弹窗 · 虚拟项目</title>
+{{HEAD}}
+</head>
+<body>
+<header class="pv-nav pv-nav--surface">
+  <div class="pv-container">
+    <a class="pv-logo" href="#">{{NAME}}</a>
+    <nav class="pv-menu pv-hide-mobile"><a href="#">{{NAV1}}</a><a class="is-current" href="#">{{NAV2}}</a><a href="#">{{NAV3}}</a></nav>
+    <span class="pv-avatar"></span>
+  </div>
+</header>
+<main class="pv-container pv-section pv-stack" style="max-width: min(var(--layout-container-max-width, 1200px), 960px)">
+  <div class="pv-stack pv-stack--tight"><span class="pv-caption">{{NAV1}} / {{NAV2}} / 新建</span><h1 class="pv-h2">新建 {{SECTION1}}</h1></div>
+  <form class="pv-card pv-card--bordered pv-stack" onsubmit="return false">
+    <h2 class="pv-h3">基本信息</h2>
+    <div class="pv-grid pv-grid--2">
+      <div class="pv-field"><label class="pv-label">名称</label><input class="pv-input" placeholder="请输入名称"></div>
+      <div class="pv-field"><label class="pv-label">编号</label><input class="pv-input pv-input--readonly" value="AUTO-2026-0922" readonly><span class="pv-help">只读字段用 bg.readonly</span></div>
+      <div class="pv-field"><label class="pv-label">负责人</label><select class="pv-input"><option>王小明</option></select></div>
+      <div class="pv-field"><label class="pv-label">截止日期</label><input class="pv-input" value="2026-10-01"></div>
+    </div>
+    <div class="pv-field"><label class="pv-label">说明</label><textarea class="pv-input" placeholder="补充说明…"></textarea></div>
+    <div class="pv-row"><label class="pv-check"><i class="is-on"></i>公开</label><label class="pv-check"><i></i>置顶</label><label class="pv-check is-disabled"><i></i>禁用项</label></div>
+    <hr class="pv-divider" style="margin: 0">
+    <div class="pv-toolbar"><button class="pv-btn pv-btn--danger" type="button">删除</button><div class="pv-row"><button class="pv-btn pv-btn--quiet" type="button">取消</button><button class="pv-btn pv-btn--secondary" type="button">保存草稿</button><button class="pv-btn pv-btn--primary" type="submit">{{CTA}}</button></div></div>
+  </form>
+  <div class="pv-row" style="align-items: flex-start"><div class="pv-popover"><a href="#">复制</a><a href="#">移动到…</a><a class="is-danger" href="#">删除</a></div><span class="pv-tooltip">Tooltip · bg.inverse + text.inverse</span><span class="pv-alert pv-alert--warning pv-small">警示条</span></div>
+</main>
+<div class="pv-overlay">
+  <div class="pv-dialog pv-dialog--sm" role="dialog">
+    <h2 class="pv-h3">确认删除？</h2>
+    <p class="pv-secondary">删除后不可恢复。这一层检验 bg.overlay 遮罩、bg.elevated 面板与 elevation.modal 阴影。</p>
+    <div class="pv-row" style="justify-content: flex-end"><button class="pv-btn pv-btn--secondary" type="button">取消</button><button class="pv-btn pv-btn--danger" type="button">删除</button></div>
+  </div>
+</div>
+</body>
+</html>

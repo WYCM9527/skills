@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{NAME}} · 落地页 · 虚拟项目</title>
+{{HEAD}}
+</head>
+<body>
+<header class="pv-nav">
+  <div class="pv-container">
+    <a class="pv-logo" href="#">{{NAME}}</a>
+    <nav class="pv-menu pv-hide-mobile">
+      <a class="is-current" href="#">{{NAV1}}</a><a href="#">{{NAV2}}</a><a href="#">{{NAV3}}</a><a href="#">{{NAV4}}</a>
+    </nav>
+    <a class="pv-btn pv-btn--primary" href="#">{{CTA}}</a>
+  </div>
+</header>
+
+<section class="pv-section pv-section--tall pv-hero">
+  <div class="pv-container pv-stack">
+    <div class="pv-eyebrow">{{EYEBROW}}</div>
+    <h1 class="pv-hero-title" style="max-width: 22ch"><span class="pv-brand">{{H1}}</span></h1>
+    <p class="pv-lead" style="max-width: 52ch">{{SUB}}</p>
+    <div class="pv-row">
+      <a class="pv-btn pv-btn--primary pv-btn--lg" href="#">{{CTA}}</a>
+      <a class="pv-btn pv-btn--secondary pv-btn--lg" href="#">{{CTA2}}</a>
+    </div>
+    <div class="pv-media pv-media--wide" aria-hidden="true"></div>
+  </div>
+</section>
+
+<section class="pv-section pv-section--tall pv-section--subtle">
+  <div class="pv-container pv-stack">
+    <div class="pv-stack pv-stack--tight">
+      <div class="pv-eyebrow">{{SECTION1}}</div>
+      <h2 class="pv-h2" style="max-width: 28ch">三个区块底色只在 page / subtle / inverse 之间切换，层次靠底色差，不靠边线。</h2>
+    </div>
+    <div class="pv-grid">
+      <article class="pv-card">
+        <span class="pv-dot"></span>
+        <h3 class="pv-h3">{{SECTION1}}</h3>
+        <p class="pv-secondary">卡片说明文字用次要色，两行以内；说明再往下一档是弱化色。</p>
+        <a class="pv-link pv-small" href="#">了解更多</a>
+      </article>
+      <article class="pv-card">
+        <span class="pv-dot"></span>
+        <h3 class="pv-h3">{{SECTION2}}</h3>
+        <p class="pv-secondary">卡片内边距 space.card，卡片之间 space.stack；圆角按容器层级。</p>
+        <a class="pv-link pv-small" href="#">了解更多</a>
+      </article>
+      <article class="pv-card">
+        <span class="pv-dot"></span>
+        <h3 class="pv-h3">{{SECTION3}}</h3>
+        <p class="pv-secondary">这里如果出现洋红色，就是这个系统类型要求的角色没有值。</p>
+        <a class="pv-link pv-small" href="#">了解更多</a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="pv-section pv-section--tall">
+  <div class="pv-container pv-grid pv-grid--2" style="align-items: center">
+    <div class="pv-stack">
+      <h2 class="pv-display">{{H2}}</h2>
+      <p class="pv-lead">图文段：左文右图。正文用 text.body.size，成段文字行高 text.paragraph.line-height；标题用 display 档。</p>
+      <ul class="pv-stack pv-stack--tight">
+        <li class="pv-row"><span class="pv-dot"></span>第一条要点，短句</li>
+        <li class="pv-row"><span class="pv-dot"></span>第二条要点，短句</li>
+        <li class="pv-row"><span class="pv-dot"></span>第三条要点，短句</li>
+      </ul>
+      <div class="pv-row"><a class="pv-btn pv-btn--secondary" href="#">{{CTA2}}</a><a class="pv-link" href="#">查看案例</a></div>
+    </div>
+    <div class="pv-cover"><div class="pv-stack pv-stack--tight"><span class="pv-caption" style="color: inherit; opacity: .8">图片上的文字</span><b class="pv-h3">压在遮罩 color.bg.overlay 上</b></div></div>
+  </div>
+</section>
+
+<section class="pv-section pv-section--tall pv-section--inverse">
+  <div class="pv-container pv-stack">
+    <h2 class="pv-display" style="max-width: 24ch">反色区块：bg.inverse + text.inverse。大字用 display 档，不是 hero 档。</h2>
+    <div class="pv-grid pv-grid--4">
+      <div class="pv-stat"><b class="pv-numeric">29</b><span class="pv-small" style="opacity:.75">{{NAV1}}</span></div>
+      <div class="pv-stat"><b class="pv-numeric">12</b><span class="pv-small" style="opacity:.75">{{NAV3}}</span></div>
+      <div class="pv-stat"><b class="pv-numeric">8</b><span class="pv-small" style="opacity:.75">年</span></div>
+      <div class="pv-stat"><b class="pv-numeric">100%</b><span class="pv-small" style="opacity:.75">token 覆盖</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="pv-section pv-section--tall">
+  <div class="pv-container pv-stack">
+    <div class="pv-row" style="justify-content: space-between"><h2 class="pv-h2">{{NAV1}}</h2><a class="pv-link" href="#">全部</a></div>
+    <div class="pv-grid">
+      <article class="pv-card pv-card--flush"><div class="pv-media"></div><div class="pv-card__body"><span class="pv-tag">{{SECTION1}}</span><h3 class="pv-h3">作品卡标题一</h3><p class="pv-secondary pv-small">一句话说明</p></div></article>
+      <article class="pv-card pv-card--flush"><div class="pv-media"></div><div class="pv-card__body"><span class="pv-tag">{{SECTION2}}</span><h3 class="pv-h3">作品卡标题二</h3><p class="pv-secondary pv-small">一句话说明</p></div></article>
+      <article class="pv-card pv-card--flush"><div class="pv-media"></div><div class="pv-card__body"><span class="pv-tag">{{SECTION3}}</span><h3 class="pv-h3">作品卡标题三</h3><p class="pv-secondary pv-small">一句话说明</p></div></article>
+    </div>
+  </div>
+</section>
+
+<section class="pv-section pv-section--tall pv-section--brand">
+  <div class="pv-container pv-row" style="justify-content: space-between">
+    <h2 class="pv-display" style="max-width: 24ch">品牌面 CTA 带：bg.brand + text.on-brand，只放大字</h2>
+    <a class="pv-btn pv-btn--on-brand pv-btn--lg" href="#">{{CTA}}</a>
+  </div>
+</section>
+
+<footer class="pv-footer">
+  <div class="pv-container pv-grid pv-grid--4">
+    <div class="pv-stack pv-stack--tight"><span class="pv-logo" style="color: var(--color-text-primary)">{{NAME}}</span><span class="pv-muted pv-small">{{SOURCE}}</span></div>
+    <div><div class="pv-strong pv-small" style="margin-bottom: 8px">{{NAV1}}</div><a href="#">{{SECTION1}}</a><a href="#">{{SECTION2}}</a><a href="#">{{SECTION3}}</a></div>
+    <div><div class="pv-strong pv-small" style="margin-bottom: 8px">{{NAV2}}</div><a href="#">{{NAV3}}</a><a href="#">{{NAV4}}</a></div>
+    <div><div class="pv-strong pv-small" style="margin-bottom: 8px">{{CTA}}</div><a class="pv-link" href="#">hello@example.com</a><span class="pv-muted pv-small">© {{NAME}}</span></div>
+  </div>
+</footer>
+</body>
+</html>

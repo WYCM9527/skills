@@ -4,7 +4,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { fileExists, readJson } from "./args.mjs";
-import { cssValueOf, flattenTokens, resolveToken } from "./dtcg.mjs";
+import { cssValueOf, cssVariableName, flattenTokens, resolveToken } from "./dtcg.mjs";
 
 async function tokenFilesUnder(root) {
   if (!(await fileExists(root))) {
@@ -86,4 +86,26 @@ export function allPaths(system) {
     }
   }
   return [...paths].sort((left, right) => left.localeCompare(right));
+}
+
+/** 把 Core 与各 Theme 的解析值写成 CSS 自定义属性（:root + 各主题选择器 / 媒体查询）——构建前也能预览。 */
+export function inlineTokensCss(system) {
+  const lines = [];
+  const block = (selector, tokens, theme) => {
+    const body = [];
+    for (const tokenPath of [...tokens.keys()].sort()) {
+      const resolved = resolveIn(system, tokenPath, theme);
+      if (resolved?.css) body.push(`  --${cssVariableName(tokenPath)}: ${resolved.css};`);
+    }
+    return body.length ? `${selector} {\n${body.join("\n")}\n}` : "";
+  };
+  lines.push(block(":root", system.core, null));
+  for (const theme of system.themes) {
+    if (theme.mediaQuery) {
+      lines.push(`@media ${theme.mediaQuery} {\n${block(":root", theme.tokens, theme).replace(/^/gm, "  ")}\n}`);
+    } else if (theme.selector) {
+      lines.push(block(theme.selector, theme.tokens, theme));
+    }
+  }
+  return lines.filter(Boolean).join("\n");
 }

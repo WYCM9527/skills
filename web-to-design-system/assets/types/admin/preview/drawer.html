@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{NAME}} · 抽屉与弹窗 · 虚拟项目</title>
+{{HEAD}}
+</head>
+<body>
+<div class="pv-shell">
+  <aside class="pv-sidebar">
+    <span class="pv-logo">{{NAME}}</span>
+    <nav class="pv-stack pv-stack--tight"><span class="pv-group">工作台</span><a class="is-current" href="#"><i></i>{{NAV1}}</a><a href="#"><i></i>{{NAV2}}</a><a href="#"><i></i>{{NAV3}}</a></nav>
+  </aside>
+  <div class="pv-main">
+    <header class="pv-topbar"><span class="pv-secondary pv-small">{{NAV1}}</span><span class="pv-avatar"></span></header>
+    <main class="pv-content">
+      <h1 class="pv-h2">{{NAV1}}</h1>
+      <div class="pv-card pv-card--flush"><table class="pv-table"><thead><tr><th>名称</th><th>状态</th><th>更新时间</th></tr></thead><tbody><tr><td>{{SECTION1}}</td><td><span class="pv-badge pv-badge--success">已通过</span></td><td class="pv-secondary">今天</td></tr><tr><td>{{SECTION2}}</td><td><span class="pv-badge pv-badge--warning">待审批</span></td><td class="pv-secondary">昨天</td></tr><tr><td>{{SECTION3}}</td><td><span class="pv-badge pv-badge--neutral">草稿</span></td><td class="pv-secondary">上周</td></tr></tbody></table></div>
+    </main>
+  </div>
+</div>
+<div class="pv-overlay pv-overlay--right">
+  <aside class="pv-drawer" role="dialog">
+    <div class="pv-toolbar"><h2 class="pv-h3">编辑 {{SECTION1}}</h2><button class="pv-btn pv-btn--quiet pv-btn--sm" type="button">关闭</button></div>
+    <div class="pv-field"><label class="pv-label">名称</label><input class="pv-input" value="{{SECTION1}}"></div>
+    <div class="pv-field"><label class="pv-label">负责人</label><select class="pv-input"><option>王小明</option></select></div>
+    <div class="pv-field"><label class="pv-label">状态</label><div class="pv-row"><span class="pv-badge pv-badge--success">已通过</span><span class="pv-badge pv-badge--warning">待审批</span><span class="pv-badge pv-badge--error">已驳回</span><span class="pv-badge pv-badge--info">提示</span><span class="pv-badge pv-badge--neutral">草稿</span></div></div>
+    <div class="pv-field"><label class="pv-label">说明</label><textarea class="pv-input" placeholder="补充说明…"></textarea></div>
+    <div class="pv-row" style="justify-content: flex-end"><button class="pv-btn pv-btn--secondary" type="button">取消</button><button class="pv-btn pv-btn--primary" type="button">保存</button></div>
+    <div class="pv-dialog pv-dialog--sm" style="width: 100%"><h3 class="pv-h4">确认弹窗（sm）</h3><p class="pv-secondary pv-small">bg.elevated + elevation.modal，宽 layout.modal.width.sm。</p><div class="pv-row" style="justify-content: flex-end"><button class="pv-btn pv-btn--secondary pv-btn--sm" type="button">取消</button><button class="pv-btn pv-btn--danger pv-btn--sm" type="button">删除</button></div></div>
+  </aside>
+</div>
+</body>
+</html>

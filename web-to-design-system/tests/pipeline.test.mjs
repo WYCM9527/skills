@@ -281,6 +281,35 @@ test("脚手架（种子模式）：身份文件、桥接、模板、README / CH
   assert.match(readFileSync(path.join(seedDir, "CHANGELOG.md"), "utf8"), /## 0\.1\.0/);
 });
 
+test("虚拟项目：按系统类型渲染真实页面，草稿内联 / 种子链接 dist 两种来源，对照页与看图清单", () => {
+  // 草稿模式：内联解析值，不用构建；product 类型 → login / list / form
+  const draftPreview = path.join(work, "preview-draft");
+  const out = JSON.parse(run("render-preview.mjs", ["--draft", draftDir, "--out", draftPreview, "--evidence", EVIDENCE, "--json"]));
+  assert.equal(out.type, "product");
+  assert.deepEqual(out.pages, ["login.html", "list.html", "form.html"]);
+  assert.ok(existsSync(path.join(draftPreview, "tokens.css")) && existsSync(path.join(draftPreview, "preview.css")) && existsSync(path.join(draftPreview, "index.html")));
+  const list = readFileSync(path.join(draftPreview, "list.html"), "utf8");
+  assert.match(list, /<link rel="stylesheet" href="tokens\.css">/);
+  assert.match(list, /Acme/, "站名进页面");
+  assert.ok(!/\{\{[A-Z0-9_]+\}\}/.test(list), "占位符全部填充");
+  assert.match(readFileSync(path.join(draftPreview, "tokens.css"), "utf8"), /--color-action-primary:/);
+  const compare = readFileSync(path.join(draftPreview, "index.html"), "utf8");
+  assert.match(compare, /看图清单/);
+  assert.match(compare, /没有截图（加 --shots 生成）/);
+  // 种子模式：链接 dist/index.css + bridge/base.css；--type 覆盖成 website → landing / article / contact；圆角档可指定
+  const seedPreview = path.join(work, "preview-seed");
+  const seedOut = JSON.parse(run("render-preview.mjs", ["--system", path.join(seedDir, "design-system"), "--out", seedPreview, "--type", "website", "--radius-control", "none", "--json"]));
+  assert.deepEqual(seedOut.pages, ["landing.html", "article.html", "contact.html"]);
+  const landing = readFileSync(path.join(seedPreview, "landing.html"), "utf8");
+  assert.match(landing, /href="tokens\.css"/, "种子还没构建 dist → 回退内联解析值");
+  assert.equal(seedOut.css, "内联解析值（构建前）");
+  assert.match(readFileSync(path.join(seedPreview, "preview.local.css"), "utf8"), /--pv-radius-control: var\(--radius-none/);
+  // 显式 --css：链接构建产物（接入方拿到的东西）
+  const cssOut = JSON.parse(run("render-preview.mjs", ["--system", path.join(seedDir, "design-system"), "--out", seedPreview, "--type", "website", "--css", "../dist/index.css", "--json"]));
+  assert.equal(cssOut.css, "../dist/index.css");
+  assert.match(readFileSync(path.join(seedPreview, "landing.html"), "utf8"), /href="\.\.\/dist\/index\.css"/);
+});
+
 test("脚手架（发布模式）：<id>/seeds/<name> 布局、身份文件由仓库远端与路径推出、系统 README、根 README 表格行、迁移对照、Citrine 桥接与缺口", { skip: canBuild ? false : "需要 steward 的 style-dictionary 才能 --build" }, () => {
   const repo = path.join(work, "repo");
   mkdirSync(repo, { recursive: true });

@@ -13,6 +13,7 @@
 //   bridges       true / false：要不要向用户提「拷组件库桥接」
 //   pages         预检时推荐取哪些页面
 //   board         预览板样例套件：website | product | admin（缺省取原型）
+//   preview       虚拟项目要渲染的页面 id 列表，模板在 <dir>/<id>/preview/<page>.html（缺文件沿 extends 链回退）
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -107,6 +108,7 @@ export async function loadTypes({ dirs = [], startDir = process.cwd() } = {}) {
       inferable,
       label: json.label ?? id,
       pages: json.pages ?? parent?.pages ?? "",
+      preview: Array.isArray(json.preview) ? json.preview : parent?.preview ?? [],
       required,
       source: json.source
     };
@@ -140,6 +142,15 @@ export async function typeBlocks(type) {
     blocks[file.replace(".md", "")] = (await readFile(path.join(dir, file), "utf8")).trim();
   }
   return blocks;
+}
+
+/** 虚拟项目页面模板：<类型目录>/preview/<page>.html，缺文件沿 extends 链回退；返回 { page, file } 列表。 */
+export function typePreviewPages(type) {
+  return type.preview.map((page) => {
+    const dir = type.chain.find((candidate) => existsSync(path.join(candidate, "preview", `${page}.html`)));
+    if (!dir) throw new Error(`系统类型 ${type.id} 声明了预览页 ${page}，但 extends 链上都没有 preview/${page}.html`);
+    return { file: path.join(dir, "preview", `${page}.html`), page };
+  });
 }
 
 /**

@@ -15,31 +15,11 @@ import { parseArgs, reportError, requireAbsolutePath, requireStringOption, write
 import { aliasTarget, cssValueOf, cssVariableName } from "./lib/dtcg.mjs";
 import { ROLE_BY_PATH, ROLE_GROUPS } from "./lib/roles.mjs";
 import { loadTypes, resolveType } from "./lib/types.mjs";
-import { allPaths, loadSystem, resolveIn } from "./lib/system.mjs";
+import { allPaths, inlineTokensCss, loadSystem, resolveIn } from "./lib/system.mjs";
 
 const escape = (text) => String(text ?? "").replace(/[&<>"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[character]);
 const v = (tokenPath) => `var(--${cssVariableName(tokenPath)})`;
 
-function inlineCss(system) {
-  const lines = [];
-  const block = (selector, tokens, theme) => {
-    const body = [];
-    for (const tokenPath of [...tokens.keys()].sort()) {
-      const resolved = resolveIn(system, tokenPath, theme);
-      if (resolved?.css) body.push(`  --${cssVariableName(tokenPath)}: ${resolved.css};`);
-    }
-    return body.length ? `${selector} {\n${body.join("\n")}\n}` : "";
-  };
-  lines.push(block(":root", system.core, null));
-  for (const theme of system.themes) {
-    if (theme.mediaQuery) {
-      lines.push(`@media ${theme.mediaQuery} {\n${block(":root", theme.tokens, theme).replace(/^/gm, "  ")}\n}`);
-    } else if (theme.selector) {
-      lines.push(block(theme.selector, theme.tokens, theme));
-    }
-  }
-  return lines.filter(Boolean).join("\n");
-}
 
 function swatch(tokenPath, { label, meta } = {}) {
   return `<div class="sw"><i style="background:${v(tokenPath)}"></i><b>${escape(label ?? tokenPath)}</b>${meta ? `<span>${escape(meta)}</span>` : ""}</div>`;
@@ -138,7 +118,7 @@ async function main() {
 <head>
 <meta charset="utf-8">
 <title>${escape(name)} · Token 预览板</title>
-${cssHref ? `<link rel="stylesheet" href="${escape(cssHref)}">` : `<style id="tokens">\n${inlineCss(system)}\n</style>`}
+${cssHref ? `<link rel="stylesheet" href="${escape(cssHref)}">` : `<style id="tokens">\n${inlineTokensCss(system)}\n</style>`}
 <style>
   /* 预览板自身的壳层样式全部引用 token 变量，缺失的角色由后备值兜底 */
   /* vw 缩放的 rem 站点会带 layout.root.font-size：预览板按它渲染 rem 尺寸，否则按 16px */

@@ -34,7 +34,8 @@ SPA 的路由：`snapshot -i` 看菜单项，点一遍记 `location.hash`；各�
 - **样式表**：`@media` 里的断点、`prefers-color-scheme` / `prefers-reduced-motion`、`.dark` / `[data-theme]` 这类主题选择器、`:focus-visible` 规则的 outline / box-shadow / border-color；跨域样式表读不到时记数。
 - **根变量**：`:root` 上全部 `--*`（最多 400 个）；shadcn / Element / Ant 的变量名会成为状态色、图表色的强证据。
 - **主题线索**：html / body 的 class 与 data-*、`color-scheme`、`<meta name=theme-color>`、疑似主题切换控件。
-- **文案**：h1 / h2 与 CTA 文案（写 DESIGN「视觉语言」时用）。
+- **文案**：h1 / h2 与 CTA 文案（写 DESIGN「视觉语言」时用；虚拟项目拿它们填 hero / 导航 / 区块标题）。
+- **首屏截图**：桌面、手机、另一模式（拿到时）各一张，存到 `<out>-screens/`，只给虚拟项目的对照页用，不是取证证据；`--no-screens` 关掉。
 
 ## 2. 另一模式探测
 

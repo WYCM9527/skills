@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{NAME}} · 表单 · 虚拟项目</title>
+{{HEAD}}
+</head>
+<body>
+<div class="pv-shell">
+  <aside class="pv-sidebar">
+    <span class="pv-logo">{{NAME}}</span>
+    <nav class="pv-stack pv-stack--tight"><span class="pv-group">工作台</span><a href="#"><i></i>{{NAV1}}</a><a class="is-current" href="#"><i></i>{{NAV2}}</a><a href="#"><i></i>{{NAV3}}</a><span class="pv-group">管理</span><a href="#"><i></i>{{NAV4}}</a></nav>
+  </aside>
+  <div class="pv-main">
+    <header class="pv-topbar"><span class="pv-secondary pv-small">{{NAV2}} / 新建</span><span class="pv-avatar"></span></header>
+    <main class="pv-content">
+      <div class="pv-toolbar"><h1 class="pv-h2">新建 {{SECTION1}}</h1><div class="pv-row"><button class="pv-btn pv-btn--quiet" type="button">取消</button><button class="pv-btn pv-btn--primary" type="button">{{CTA}}</button></div></div>
+      <nav class="pv-tabs"><a class="is-current" href="#">基本信息</a><a href="#">权限</a><a href="#">高级</a></nav>
+      <form class="pv-card pv-stack" onsubmit="return false">
+        <div class="pv-form-h">
+          <label class="pv-label">名称</label><input class="pv-input" placeholder="请输入名称">
+          <label class="pv-label">编号</label><input class="pv-input pv-input--readonly" value="AUTO-2026-0922" readonly>
+          <label class="pv-label">负责人</label><select class="pv-input"><option>王小明</option></select>
+          <label class="pv-label">截止日期</label><input class="pv-input" value="2026-10-01">
+          <label class="pv-label">类型</label><div class="pv-row"><label class="pv-check"><i class="is-on"></i>内部</label><label class="pv-check"><i></i>外部</label><label class="pv-check is-disabled"><i></i>归档</label></div>
+          <label class="pv-label" style="align-self: start">说明</label><div class="pv-field"><textarea class="pv-input" placeholder="补充说明…"></textarea><span class="pv-help">帮助文字用 text.small + text.muted</span></div>
+        </div>
+        <hr class="pv-divider" style="margin: 0">
+        <div class="pv-toolbar"><button class="pv-btn pv-btn--danger" type="button">删除</button><div class="pv-row"><button class="pv-btn pv-btn--secondary" type="button">保存草稿</button><button class="pv-btn pv-btn--primary" type="submit">{{CTA}}</button></div></div>
+      </form>
+      <div class="pv-row"><span class="pv-alert pv-small"><span class="pv-dot" style="background: currentColor"></span>提示条</span><span class="pv-alert pv-alert--warning pv-small">警示条</span><span class="pv-tooltip">Tooltip</span></div>
+    </main>
+  </div>
+</div>
+</body>
+</html>
