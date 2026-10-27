@@ -13,6 +13,7 @@
     "!design-system/dist",
     "design-system.json",
     "templates",
+    "migration",
     "README.md",
     "CHANGELOG.md"
   ],
