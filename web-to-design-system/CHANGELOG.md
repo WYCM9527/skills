@@ -7,6 +7,7 @@
 - **默认 `description` 不该是用户决策**：`scaffold-system.mjs` 不传 `--description` 时写成「<名称>：从 <URL> 实测提炼的设计系统。」，这句会落到根 README 表格「定位」列、`design-system.json`、`<id>/README.md`、`package.json`。改为从 `draft-notes.json` 拼一句能直接上表的定位（来源域名 · 主操作色与色族 · 有无另一模式 · 栈与桥接状态），并把 SKILL「6. 发布到 Design-System 仓库」里「写进仓库前问用户 `--description`」改成「Agent 按证据起草定位，给用户过目即可」。
 - **npm 发布不在 skill 里决定**：提炼出的种子继续默认不带 `publishConfig`（只走文件夹 / Release 直链渠道，adopter 接入与按 tag 升级都不依赖 registry）；何时值得上 npm 的判据记在 Design-System 仓库 GUIDE 8c 第 9 步，`release.yml` 已会自动识别 `publishConfig`。
 - **种子模板 `files` 漏了 `migration`**（2026-10-27 发现，模板已改）：`scaffold-system.mjs` 会写 `migration/roles.json`，身份文件也登记了 `migration.roles`，但 `assets/seed/package.template.json` 的 `files` 没有 `migration`，npm 包与 Releases 里的种子 tgz 都不带它（文件夹渠道整目录拷贝，不受影响）。Morganite 上 npm 前用 `npm pack --dry-run` 核对时查出，已在它的 0.3.3 补上。还要做：`publish-check` 加一项「npm 包带齐身份文件引用的文件（`dist/` 除外）」。
+- **桥接起点的示例与测试样本改用 Morganite**（2026-11-10）：Design-System 仓库删掉了 `citrine/`（黄晶并入 Morganite，成为它的一个颜色），SKILL 写入仓库示例里的 `--with-citrine-bridges` 和发布模式测试的桥接来源都改为 `morganite/seeds/morganite`。选项名不变，仍接受任意带 `bridge/` 的种子。
 
 ## 0.7.0 — 2026-09-22
 

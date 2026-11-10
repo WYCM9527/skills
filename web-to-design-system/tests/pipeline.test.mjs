@@ -310,14 +310,14 @@ test("虚拟项目：按系统类型渲染真实页面，草稿内联 / 种子�
   assert.match(readFileSync(path.join(seedPreview, "landing.html"), "utf8"), /href="\.\.\/dist\/index\.css"/);
 });
 
-test("脚手架（发布模式）：<id>/seeds/<name> 布局、身份文件由仓库远端与路径推出、系统 README、根 README 表格行、迁移对照、Citrine 桥接与缺口", { skip: canBuild ? false : "需要 steward 的 style-dictionary 才能 --build" }, () => {
+test("脚手架（发布模式）：<id>/seeds/<name> 布局、身份文件由仓库远端与路径推出、系统 README、根 README 表格行、迁移对照、中后台桥接（Morganite）与缺口", { skip: canBuild ? false : "需要 steward 的 style-dictionary 才能 --build" }, () => {
   const repo = path.join(work, "repo");
   mkdirSync(repo, { recursive: true });
   execFileSync("git", ["init", "-q", repo]);
   execFileSync("git", ["-C", repo, "remote", "add", "origin", "https://github.com/WYCM9527/Design-System.git"]);
-  writeFileSync(path.join(repo, "README.md"), "# Design-System\n\n| 设计系统 | 定位 | 版本 |\n| --- | --- | --- |\n| [**Citrine · 黄晶**](citrine/) | 中后台 | 2.11.9 |\n\n## 其他\n");
-  const citrineSeed = path.join(REPO_ROOT, "..", "citrine", "seeds", "brand-yellow-e");
-  const withBridges = existsSync(path.join(citrineSeed, "bridge", "element-plus.css")) ? ["--with-citrine-bridges", citrineSeed] : [];
+  writeFileSync(path.join(repo, "README.md"), "# Design-System\n\n| 设计系统 | 定位 | 版本 |\n| --- | --- | --- |\n| [**Morganite · 玫瑰金**](morganite/) | 中后台 | 0.4.0 |\n\n## 其他\n");
+  const bridgeSeed = path.join(REPO_ROOT, "..", "morganite", "seeds", "morganite");
+  const withBridges = existsSync(path.join(bridgeSeed, "bridge", "element-plus.css")) ? ["--with-citrine-bridges", bridgeSeed] : [];
   // 先在种子目录放好 style-dictionary，--build 就不用联网安装
   const seedDir = path.join(repo, "acme", "seeds", "acme");
   mkdirSync(path.join(seedDir, "node_modules"), { recursive: true });
@@ -342,12 +342,12 @@ test("脚手架（发布模式）：<id>/seeds/<name> 布局、身份文件由�
   assert.match(systemReadme, /^版本 \*\*0\.1\.0\*\*/m);
   const rootReadme = readFileSync(path.join(repo, "README.md"), "utf8");
   assert.match(rootReadme, /\| \[\*\*Acme 采购\*\*\]\(acme\/\) \| 采购中后台 \| 0\.1\.0 \|/);
-  assert.match(rootReadme, /Citrine · 黄晶/, "已有行不动");
+  assert.match(rootReadme, /Morganite · 玫瑰金/, "已有行不动");
   if (withBridges.length) {
     assert.deepEqual(out.identity.stacks, ["css", "element-plus", "shadcn"]);
     assert.ok(existsSync(path.join(seedDir, "bridge", "element-plus.css")) && existsSync(path.join(seedDir, "bridge", "recipes.css")));
     assert.ok(existsSync(path.join(seedDir, "templates", "entry-element-plus.css")) && existsSync(path.join(seedDir, "templates", "notes-shadcn.md")));
-    assert.ok(out.bridge.missing.includes("color-bg-sidebar-selected"), "Citrine 桥接引用的侧栏选中底本系统没有 → 缺口");
+    assert.ok(out.bridge.missing.includes("color-bg-sidebar-selected"), "Morganite 桥接引用的侧栏选中底本系统没有 → 缺口");
     const pkg = readJson(path.join(seedDir, "package.json"));
     assert.equal(pkg.exports["./vue/*"], "./bridge/vue/*");
     assert.equal(pkg.exports["./echarts"].default, "./bridge/echarts.js");

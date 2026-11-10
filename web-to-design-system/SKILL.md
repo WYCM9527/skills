@@ -99,7 +99,7 @@ node <本 skill>/scripts/scaffold-system.mjs --from /tmp/<id>-draft --project <�
 node <本 skill>/scripts/scaffold-system.mjs --from /tmp/<id>-draft --seed <种子目录> --id <id> --name "<名称>" --repo <owner/repo> --path <子路径> --npm <@scope/id>
 # 发布模式：按 Design-System 仓库约定写到 <仓库根>/<id>/seeds/<id>/，upstream 由仓库远端与实际路径推出，并写 <id>/README.md + 根 README 表格行
 node <本 skill>/scripts/scaffold-system.mjs --from /tmp/<id>-draft --into-repo <Design-System 仓库根> --id <id> --name "<名称>" --description "<一句定位>" \
-  --with-citrine-bridges <仓库根>/citrine/seeds/brand-yellow-e --build
+  --with-citrine-bridges <仓库根>/morganite/seeds/morganite --build
 #   --with-citrine-bridges：拷 Element Plus / shadcn / recipes / ECharts 桥接与配方组件当起点，并把「桥接引用但本系统缺的变量」写进 AUDIT「桥接缺口」
 #   --build：在种子目录跑 steward build-tokens，dist/ 随种子提交（纯 CSS 渠道 export 直接读它）
 #   已有 design-system/ 时：--tokens-only 只重同步 token（不动 DESIGN / AUDIT），--force 整目录重写
