@@ -1,6 +1,6 @@
 # 本仓库的 token 规范速查
 
-提炼出来的系统必须能被 design-system-steward `validate-system → build-tokens → guard` 三绿、被 design-system-adopter 识别接入、与 Citrine 用同一套用途名。这一页把规范压成可核对的清单；原文在 steward 的 [dtcg-profile.md](../../design-system-steward/references/dtcg-profile.md)、[apply.md](../../design-system-steward/references/apply.md)、[theme.md](../../design-system-steward/references/theme.md) 与 Citrine 种子的 [DESIGN.md](https://github.com/WYCM9527/Design-System/blob/main/citrine/seeds/brand-yellow-e/design-system/DESIGN.md)。
+提炼出来的系统必须能被 design-system-steward `validate-system → build-tokens → guard` 三绿、被 design-system-adopter 识别接入、与 Citrine 用同一套用途名。这一页把规范压成可核对的清单；原文在 steward 的 [dtcg-profile.md](../../design-system-steward/references/dtcg-profile.md)、[apply.md](../../design-system-steward/references/apply.md)、[theme.md](../../design-system-steward/references/theme.md) 与 Citrine 种子的 [DESIGN.md](https://github.com/WYCM9527/Design-System/blob/citrine-v2.12.2/citrine/seeds/brand-yellow-e/design-system/DESIGN.md)。
 
 ## 1. 格式：DTCG 2025.10 CSS Profile
 

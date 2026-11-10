@@ -192,4 +192,4 @@ node <本 skill>/scripts/publish-check.mjs --seed <仓库根>/<id>/seeds/<id>   
 - [references/mapping-rules.md](references/mapping-rules.md)：证据 → token 的归档规则、另一模式、缺口怎么补
 - [references/extraction-checklist.md](references/extraction-checklist.md)：选页面、脚本读了什么、什么不取
 - [references/browser-tooling.md](references/browser-tooling.md)：agent-browser 引导与故障
-- 规范原文：steward [dtcg-profile](../design-system-steward/references/dtcg-profile.md) / [apply](../design-system-steward/references/apply.md) / [theme](../design-system-steward/references/theme.md)；样板 [Citrine DESIGN.md](https://github.com/WYCM9527/Design-System/blob/main/citrine/seeds/brand-yellow-e/design-system/DESIGN.md)
+- 规范原文：steward [dtcg-profile](../design-system-steward/references/dtcg-profile.md) / [apply](../design-system-steward/references/apply.md) / [theme](../design-system-steward/references/theme.md)；样板 [Citrine DESIGN.md](https://github.com/WYCM9527/Design-System/blob/citrine-v2.12.2/citrine/seeds/brand-yellow-e/design-system/DESIGN.md)
